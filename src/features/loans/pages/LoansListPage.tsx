@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useLoans } from '../loans.context';
 import { LoanCard } from '../components/LoanCard';
 import { Button } from '../../../shared/ui/Button';
+import { BackupControls } from '../components/BackupControls';
 
 export function LoansListPage() {
   const { loans } = useLoans();
@@ -18,6 +19,10 @@ export function LoansListPage() {
           <Button>+ Novo empréstimo</Button>
         </Link>
       </header>
+
+      <div className='mt-6'>
+        <BackupControls />
+      </div>
 
       <div className='mt-6 grid gap-3'>
         {loans.length === 0 ? (
