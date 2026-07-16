@@ -7,59 +7,78 @@ import { useLoans } from '../loans.context';
 import type { Loan } from '../loans.types';
 import { createInstallments, cryptoId, todayISODate, toCents } from '../loans.utils';
 
+// How the user wants to derive the installment breakdown
+type CalcMode = 'perInstallment' | 'byPrincipal' | 'byTotal';
+
+const CALC_MODES: { value: CalcMode; label: string }[] = [
+  { value: 'perInstallment', label: 'Valor por parcela' },
+  { value: 'byPrincipal', label: 'Valor emprestado' },
+  { value: 'byTotal', label: 'Total a pagar' },
+];
+
 export function NewLoanPage() {
   const nav = useNavigate();
   const { addLoan } = useLoans();
 
+  // Base fields
   const [name, setName] = useState('Meu empréstimo');
-  const [principal, setPrincipal] = useState<number>(10000);
-  const [totalToPay, setTotalToPay] = useState<number>(12000);
+  const [principal, setPrincipal] = useState<number>(0);
+  const [downPayment, setDownPayment] = useState<number>(0);
   const [installmentsCount, setInstallmentsCount] = useState<number>(12);
   const [firstDueDate, setFirstDueDate] = useState<string>(todayISODate());
-
   const [interestRateMonthlyPct, setInterestRateMonthlyPct] = useState<number>(0);
   const [cetAnnualPct, setCetAnnualPct] = useState<number>(0);
+
+  // Calc mode + mode-specific inputs
+  const [calcMode, setCalcMode] = useState<CalcMode>('byTotal');
+  const [installmentAmount, setInstallmentAmount] = useState<number>(0); // editable in 'perInstallment' mode
+  const [totalToPay, setTotalToPay] = useState<number>(0);              // editable in 'byTotal' mode
+
+  // Resolved values used for submission
+  const resolvedTotalToPay = useMemo(() => {
+    if (calcMode === 'perInstallment') return installmentsCount > 0 ? installmentsCount * installmentAmount : 0;
+    if (calcMode === 'byPrincipal') return Math.max(0, principal - downPayment);
+    return totalToPay;
+  }, [calcMode, installmentsCount, installmentAmount, principal, downPayment, totalToPay]);
+
+  const resolvedInstallmentAmount = useMemo(() => {
+    if (installmentsCount <= 0 || resolvedTotalToPay <= 0) return 0;
+    return resolvedTotalToPay / installmentsCount;
+  }, [resolvedTotalToPay, installmentsCount]);
 
   const canSubmit = useMemo(() => {
     return (
       name.trim().length > 0 &&
       principal > 0 &&
-      totalToPay > 0 &&
       installmentsCount > 0 &&
-      firstDueDate.length === 10
+      firstDueDate.length === 10 &&
+      resolvedTotalToPay > 0
     );
-  }, [name, principal, totalToPay, installmentsCount, firstDueDate]);
+  }, [name, principal, installmentsCount, firstDueDate, resolvedTotalToPay]);
 
   function onSubmit() {
     if (!canSubmit) return;
 
     const now = new Date().toISOString();
+    const totalToPayCents = toCents(resolvedTotalToPay);
 
     const loan: Loan = {
       id: cryptoId(),
       name: name.trim(),
-
       principalAmountCents: toCents(principal),
-      totalToPayCents: toCents(totalToPay),
-
+      downPaymentAmountCents: downPayment > 0 ? toCents(downPayment) : undefined,
+      totalToPayCents,
       interestRateMonthlyPct: interestRateMonthlyPct > 0 ? interestRateMonthlyPct : undefined,
       cetAnnualPct: cetAnnualPct > 0 ? cetAnnualPct : undefined,
-
       installmentsCount,
       firstDueDate,
-
       createdAt: now,
       updatedAt: now,
-
-      installments: createInstallments({
-        installmentsCount,
-        firstDueDate,
-        totalToPayCents: toCents(totalToPay),
-      }),
+      installments: createInstallments({ installmentsCount, firstDueDate, totalToPayCents }),
     };
 
     addLoan(loan);
-    nav(`/emprestimo/${loan.id}`);
+    nav(`/loan/${loan.id}`);
   }
 
   return (
@@ -81,69 +100,145 @@ export function NewLoanPage() {
         </CardHeader>
 
         <CardContent>
-          <div className='grid gap-4 md:grid-cols-2'>
-            <Input
-              label='Nome'
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder='Ex: Nubank - Parcelado'
-            />
+          <div className='grid gap-6'>
+            {/* Nome + vencimento */}
+            <div className='grid gap-4 md:grid-cols-2'>
+              <Input
+                label='Nome'
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder='Ex: Nubank - Parcelado'
+              />
 
-            <Input
-              label='Quantidade de parcelas'
-              required
-              type='number'
-              min={1}
-              value={installmentsCount}
-              onChange={(e) => setInstallmentsCount(Number(e.target.value))}
-            />
+              <Input
+                label='1º vencimento'
+                required
+                type='date'
+                value={firstDueDate}
+                onChange={(e) => setFirstDueDate(e.target.value)}
+              />
+            </div>
 
-            <Input
-              label='Valor emprestado (R$)'
-              required
-              type='number'
-              min={0}
-              step={0.01}
-              value={principal}
-              onChange={(e) => setPrincipal(Number(e.target.value))}
-            />
+            {/* Principal + Down payment */}
+            <div className='grid gap-4 md:grid-cols-2'>
+              <Input
+                label='Valor emprestado (R$)'
+                required
+                type='number'
+                min={0}
+                step={0.01}
+                value={principal || ''}
+                placeholder='0,00'
+                onChange={(e) => setPrincipal(Number(e.target.value))}
+              />
 
-            <Input
-              label='Total a pagar (R$)'
-              required
-              type='number'
-              min={0}
-              step={0.01}
-              value={totalToPay}
-              onChange={(e) => setTotalToPay(Number(e.target.value))}
-            />
+              <Input
+                label='Entrada (R$)'
+                type='number'
+                min={0}
+                step={0.01}
+                value={downPayment || ''}
+                placeholder='0,00 (opcional)'
+                onChange={(e) => setDownPayment(Number(e.target.value))}
+              />
+            </div>
 
-            <Input
-              label='1º vencimento'
-              required
-              type='date'
-              value={firstDueDate}
-              onChange={(e) => setFirstDueDate(e.target.value)}
-            />
+            {/* Calc mode selector */}
+            <div>
+              <div className='mb-2 text-sm font-medium text-slate-700'>Calcular parcelas por</div>
+              <div className='flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1'>
+                {CALC_MODES.map((m) => (
+                  <button
+                    key={m.value}
+                    type='button'
+                    onClick={() => setCalcMode(m.value)}
+                    className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      calcMode === m.value
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-            <Input
-              label='Juros (a.m.) % (opcional)'
-              type='number'
-              min={0}
-              step={0.01}
-              value={interestRateMonthlyPct}
-              onChange={(e) => setInterestRateMonthlyPct(Number(e.target.value))}
-            />
+            {/* Calc fields: always 3-col grid — count | installmentAmount | totalToPay */}
+            <div className='grid gap-4 md:grid-cols-3'>
+              <Input
+                label='Quantidade de parcelas'
+                required
+                type='number'
+                min={1}
+                value={installmentsCount}
+                onChange={(e) => setInstallmentsCount(Number(e.target.value))}
+              />
 
-            <Input
-              label='CET (a.a.) % (opcional)'
-              type='number'
-              min={0}
-              step={0.01}
-              value={cetAnnualPct}
-              onChange={(e) => setCetAnnualPct(Number(e.target.value))}
-            />
+              {/* Middle cell: installment amount */}
+              {calcMode === 'perInstallment' ? (
+                <Input
+                  label='Valor por parcela (R$)'
+                  required
+                  type='number'
+                  min={0}
+                  step={0.01}
+                  value={installmentAmount || ''}
+                  placeholder='0,00'
+                  onChange={(e) => setInstallmentAmount(Number(e.target.value))}
+                />
+              ) : (
+                <Input
+                  label='Valor por parcela (R$)'
+                  computed
+                  type='number'
+                  value={resolvedInstallmentAmount > 0 ? resolvedInstallmentAmount.toFixed(2) : ''}
+                />
+              )}
+
+              {/* Right cell: Total a pagar */}
+              {calcMode === 'byTotal' ? (
+                <Input
+                  label='Total a pagar (R$)'
+                  required
+                  type='number'
+                  min={0}
+                  step={0.01}
+                  value={totalToPay || ''}
+                  placeholder='0,00'
+                  onChange={(e) => setTotalToPay(Number(e.target.value))}
+                />
+              ) : (
+                <Input
+                  label='Total a pagar (R$)'
+                  computed
+                  type='number'
+                  value={resolvedTotalToPay > 0 ? resolvedTotalToPay.toFixed(2) : ''}
+                />
+              )}
+            </div>
+
+            {/* Optional rates */}
+            <div className='grid gap-4 md:grid-cols-2'>
+              <Input
+                label='Juros (a.m.) % (opcional)'
+                type='number'
+                min={0}
+                step={0.01}
+                value={interestRateMonthlyPct || ''}
+                onChange={(e) => setInterestRateMonthlyPct(Number(e.target.value))}
+              />
+
+              <Input
+                label='CET (a.a.) % (opcional)'
+                type='number'
+                min={0}
+                step={0.01}
+                value={cetAnnualPct || ''}
+                onChange={(e) => setCetAnnualPct(Number(e.target.value))}
+              />
+            </div>
           </div>
 
           <div className='mt-6 flex items-center justify-end gap-3'>

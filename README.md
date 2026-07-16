@@ -1,83 +1,68 @@
-# 💸 Emprest Simples
+# Emprest Simples
 
-**Emprest Simples** é um mini-sistema web para acompanhar **financiamentos / empréstimos** de forma simples, prática e offline-first (usando **LocalStorage**).
+**Emprest Simples** é um aplicativo web para acompanhar **financiamentos e empréstimos** de forma simples e prática, com dados salvos na nuvem via **Firebase Firestore**.
 
-A ideia é permitir que você cadastre um empréstimo com seus principais dados e depois acompanhe **parcela por parcela**, marcando pagamentos, ajustando valores e vendo um resumo claro do quanto já foi pago, quanto falta e quanto você economizou.
+Cadastre um empréstimo, acompanhe **parcela por parcela**, marque pagamentos e veja um resumo claro do quanto já foi pago, quanto falta e quanto você economizou.
 
 ---
 
-## ✅ Funcionalidades
+## Funcionalidades
 
-### 📌 Cadastro de empréstimos
+### Cadastro de empréstimos
 
-- Nome do empréstimo (para fácil identificação)
-- Valor emprestado (principal)
-- Total previsto a pagar
-- Número de parcelas
+- Nome do empréstimo
+- Valor emprestado e entrada (opcional)
+- Três modos de cálculo das parcelas:
+  - **Valor por parcela** — informe o valor de cada parcela; o total é calculado automaticamente
+  - **Valor emprestado** — divide o valor financiado (principal − entrada) igualmente entre as parcelas
+  - **Total a pagar** — informe o total; o valor por parcela é calculado automaticamente
 - Data do primeiro vencimento
-- (Opcional) juros a.m. e CET a.a.
+- Juros a.m. e CET a.a. (opcionais, informativos)
 
-### 📋 Lista de empréstimos
+### Lista de empréstimos
 
-- Exibe todos os empréstimos cadastrados
+- Todos os empréstimos em um só lugar
 - Progresso de parcelas pagas (%)
-- Total previsto e total pago até o momento
+- Total previsto e total pago
 
-### 🧾 Detalhes do empréstimo
+### Detalhes do empréstimo
 
 - Tabela completa de parcelas
-- Marcar parcela como paga/não paga
-- Editar valor pago (ex: adiantamento, desconto, negociação)
+- Marcar parcela como paga / não paga
+- Editar valor pago (adiantamento, desconto, negociação)
 - Editar data real do pagamento
 
-### 📊 Resumo financeiro automático
+### Resumo financeiro automático
 
 - **Pago até agora**
 - **Falta pagar (estimado)**
-- **Economia acumulada**  
-  Calculada por:
-  > Total previsto originalmente − (valor já pago + soma esperada das parcelas restantes)
+- **Economia acumulada** — total previsto originalmente menos o custo projetado real
 
 ---
 
-## 🧱 Stack
+## Stack
 
-- ⚛️ React
-- 🟦 TypeScript
-- 🎨 Tailwind CSS (v4)
-- 💾 LocalStorage (persistência local)
-- 🧭 React Router
+- React 19 + TypeScript
+- Tailwind CSS v4
+- Firebase Firestore (persistência na nuvem)
+- React Router v7
+- Vite
 
 ---
 
-## 🚀 Rodando localmente
-
-### 1) Instalar dependências
+## Rodando localmente
 
 ```bash
 npm install
-```
-
-### 2) Rodar o projeto
-
-```bash
 npm run dev
 ```
 
-O app estará disponível em:
+App disponível em `http://localhost:5173`.
 
-```bash
-http://localhost:5173
-```
-
-## 📦 Build de produção
+## Build de produção
 
 ```bash
 npm run build
 ```
 
-Os arquivos finais serão gerados em:
-
-```bash
-dist/
-```
+Arquivos gerados em `dist/`.
