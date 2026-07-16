@@ -11,15 +11,31 @@ jobs:
       pull-requests: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-      - name: Create Pull Request
+      - name: Create or update Pull Request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          git fetch origin main
+
+          COMMITS=$(git log origin/main..HEAD --pretty=format:"- %s" --no-merges)
+          TITLE=$(git log origin/main..HEAD --pretty=format:"%s" --no-merges | head -1)
+
+          if [ -z "$COMMITS" ]; then
+            echo "No new commits — skipping."
+            exit 0
+          fi
+
+          BODY="$(printf 'Commits included:\n\n%s' "$COMMITS")"
+
           gh pr create \
             --base main \
             --head development \
-            --title "chore: sync development → main" \
-            --body "Automated PR created on push to \`development\`." \
-          || echo "PR already exists or branches are identical — skipping."
+            --title "$TITLE" \
+            --body "$BODY" \
+          || gh pr edit development \
+            --title "$TITLE" \
+            --body "$BODY"
