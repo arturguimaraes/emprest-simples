@@ -5,81 +5,118 @@ import { Input } from '../../../shared/ui/Input';
 import { Card, CardContent, CardHeader } from '../../../shared/ui/Card';
 import { useLoans } from '../loans.context';
 import type { Loan } from '../loans.types';
-import { createInstallments, cryptoId, todayISODate, toCents } from '../loans.utils';
+import {
+  createInstallments,
+  cryptoId,
+  todayISODate,
+  toCents,
+  solveMonthlyRate,
+  cetFromMonthlyRate,
+} from '../loans.utils';
 
-// How the user wants to derive the installment breakdown
-type CalcMode = 'perInstallment' | 'byPrincipal' | 'byTotal';
-
-const CALC_MODES: { value: CalcMode; label: string }[] = [
-  { value: 'perInstallment', label: 'Valor por parcela' },
-  { value: 'byPrincipal', label: 'Valor emprestado' },
-  { value: 'byTotal', label: 'Total a pagar' },
-];
+// Which of the two interdependent fields was last edited by the user
+type PrimaryField = 'installmentAmount' | 'interestRate';
 
 export function NewLoanPage() {
   const nav = useNavigate();
   const { addLoan } = useLoans();
 
-  // Base fields
   const [name, setName] = useState('Meu empréstimo');
-  const [principal, setPrincipal] = useState<number>(0);
-  const [downPayment, setDownPayment] = useState<number>(0);
-  const [installmentsCount, setInstallmentsCount] = useState<number>(12);
-  const [firstDueDate, setFirstDueDate] = useState<string>(todayISODate());
-  const [interestRateMonthlyPct, setInterestRateMonthlyPct] = useState<number>(0);
-  const [cetAnnualPct, setCetAnnualPct] = useState<number>(0);
+  const [firstDueDate, setFirstDueDate] = useState(todayISODate());
+  const [principal, setPrincipal] = useState(0);
+  const [downPayment, setDownPayment] = useState(0);
+  const [installmentsCount, setInstallmentsCount] = useState(12);
 
-  // Calc mode + mode-specific inputs
-  const [calcMode, setCalcMode] = useState<CalcMode>('byTotal');
-  const [installmentAmount, setInstallmentAmount] = useState<number>(0); // editable in 'perInstallment' mode
-  const [totalToPay, setTotalToPay] = useState<number>(0);              // editable in 'byTotal' mode
+  // Mutually dependent: last one changed drives computation of the other
+  const [primaryField, setPrimaryField] = useState<PrimaryField>('installmentAmount');
+  const [installmentAmountRaw, setInstallmentAmountRaw] = useState(0);
+  const [interestRateRaw, setInterestRateRaw] = useState(0);
 
-  // Resolved values used for submission
-  const resolvedTotalToPay = useMemo(() => {
-    if (calcMode === 'perInstallment') return installmentsCount > 0 ? installmentsCount * installmentAmount : 0;
-    if (calcMode === 'byPrincipal') return Math.max(0, principal - downPayment);
-    return totalToPay;
-  }, [calcMode, installmentsCount, installmentAmount, principal, downPayment, totalToPay]);
+  const financed = Math.max(0, principal - downPayment);
 
-  const resolvedInstallmentAmount = useMemo(() => {
-    if (installmentsCount <= 0 || resolvedTotalToPay <= 0) return 0;
-    return resolvedTotalToPay / installmentsCount;
-  }, [resolvedTotalToPay, installmentsCount]);
+  const resolved = useMemo(() => {
+    let installment: number;
+    let interestPct: number;
 
-  const canSubmit = useMemo(() => {
-    return (
-      name.trim().length > 0 &&
-      principal > 0 &&
-      installmentsCount > 0 &&
-      firstDueDate.length === 10 &&
-      resolvedTotalToPay > 0
-    );
-  }, [name, principal, installmentsCount, firstDueDate, resolvedTotalToPay]);
+    if (primaryField === 'interestRate' && interestRateRaw > 0) {
+      interestPct = interestRateRaw;
+      if (financed > 0 && installmentsCount > 0) {
+        const i = interestPct / 100;
+        installment = (financed * i) / (1 - Math.pow(1 + i, -installmentsCount));
+      } else {
+        installment = 0;
+      }
+    } else {
+      installment = installmentAmountRaw;
+      if (installment > 0 && financed > 0 && installmentsCount > 0) {
+        const rate = solveMonthlyRate(financed, installment, installmentsCount);
+        interestPct = rate != null ? rate * 100 : 0;
+      } else {
+        interestPct = 0;
+      }
+    }
+
+    const totalToPay = downPayment + installmentsCount * installment;
+    const monthlyRate = interestPct > 0 ? interestPct / 100 : null;
+    const cet = monthlyRate != null ? cetFromMonthlyRate(monthlyRate) : null;
+
+    return { installment, interestPct, totalToPay, cet };
+  }, [primaryField, installmentAmountRaw, interestRateRaw, financed, installmentsCount, downPayment]);
+
+  const canSubmit =
+    name.trim().length > 0 &&
+    principal > 0 &&
+    financed > 0 &&
+    installmentsCount > 0 &&
+    firstDueDate.length === 10 &&
+    resolved.installment > 0;
 
   function onSubmit() {
     if (!canSubmit) return;
 
     const now = new Date().toISOString();
-    const totalToPayCents = toCents(resolvedTotalToPay);
+    const installmentsTotalCents = toCents(resolved.installment * installmentsCount);
 
     const loan: Loan = {
       id: cryptoId(),
       name: name.trim(),
       principalAmountCents: toCents(principal),
       downPaymentAmountCents: downPayment > 0 ? toCents(downPayment) : undefined,
-      totalToPayCents,
-      interestRateMonthlyPct: interestRateMonthlyPct > 0 ? interestRateMonthlyPct : undefined,
-      cetAnnualPct: cetAnnualPct > 0 ? cetAnnualPct : undefined,
+      totalToPayCents: installmentsTotalCents,
+      interestRateMonthlyPct: resolved.interestPct > 0 ? resolved.interestPct : undefined,
+      cetAnnualPct: resolved.cet ?? undefined,
       installmentsCount,
       firstDueDate,
       createdAt: now,
       updatedAt: now,
-      installments: createInstallments({ installmentsCount, firstDueDate, totalToPayCents }),
+      installments: createInstallments({
+        installmentsCount,
+        firstDueDate,
+        totalToPayCents: installmentsTotalCents,
+      }),
     };
 
     addLoan(loan);
     nav(`/loan/${loan.id}`);
   }
+
+  // Display value for installment field:
+  // — when it's the primary: show the raw value the user typed
+  // — when it's computed from interest rate: show the derived value
+  const installmentDisplayValue =
+    primaryField === 'installmentAmount'
+      ? installmentAmountRaw || ''
+      : resolved.installment > 0
+        ? resolved.installment.toFixed(2)
+        : '';
+
+  // Display value for interest rate field (vice versa)
+  const interestDisplayValue =
+    primaryField === 'interestRate'
+      ? interestRateRaw || ''
+      : resolved.interestPct > 0
+        ? resolved.interestPct.toFixed(2)
+        : '';
 
   return (
     <div className='mx-auto max-w-5xl p-6'>
@@ -88,7 +125,6 @@ export function NewLoanPage() {
           <h1 className='text-2xl font-bold'>Novo empréstimo</h1>
           <p className='text-slate-600'>Cadastre e acompanhe parcela por parcela.</p>
         </div>
-
         <Button variant='ghost' onClick={() => nav('/')}>
           Voltar
         </Button>
@@ -110,7 +146,6 @@ export function NewLoanPage() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder='Ex: Nubank - Parcelado'
               />
-
               <Input
                 label='1º vencimento'
                 required
@@ -120,7 +155,7 @@ export function NewLoanPage() {
               />
             </div>
 
-            {/* Principal + Down payment */}
+            {/* Loan amount + down payment */}
             <div className='grid gap-4 md:grid-cols-2'>
               <Input
                 label='Valor emprestado (R$)'
@@ -132,111 +167,73 @@ export function NewLoanPage() {
                 placeholder='0,00'
                 onChange={(e) => setPrincipal(Number(e.target.value))}
               />
-
               <Input
                 label='Entrada (R$)'
+                required
                 type='number'
                 min={0}
                 step={0.01}
-                value={downPayment || ''}
-                placeholder='0,00 (opcional)'
+                value={downPayment}
                 onChange={(e) => setDownPayment(Number(e.target.value))}
               />
             </div>
 
-            {/* Calc mode selector */}
-            <div>
-              <div className='mb-2 text-sm font-medium text-slate-700'>Calcular parcelas por</div>
-              <div className='flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1'>
-                {CALC_MODES.map((m) => (
-                  <button
-                    key={m.value}
-                    type='button'
-                    onClick={() => setCalcMode(m.value)}
-                    className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                      calcMode === m.value
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Installments count */}
+            <Input
+              label='Quantidade de parcelas'
+              required
+              type='number'
+              min={1}
+              value={installmentsCount}
+              onChange={(e) => setInstallmentsCount(Number(e.target.value))}
+            />
 
-            {/* Calc fields: always 3-col grid — count | installmentAmount | totalToPay */}
-            <div className='grid gap-4 md:grid-cols-3'>
-              <Input
-                label='Quantidade de parcelas'
-                required
-                type='number'
-                min={1}
-                value={installmentsCount}
-                onChange={(e) => setInstallmentsCount(Number(e.target.value))}
-              />
-
-              {/* Middle cell: installment amount */}
-              {calcMode === 'perInstallment' ? (
-                <Input
-                  label='Valor por parcela (R$)'
-                  required
-                  type='number'
-                  min={0}
-                  step={0.01}
-                  value={installmentAmount || ''}
-                  placeholder='0,00'
-                  onChange={(e) => setInstallmentAmount(Number(e.target.value))}
-                />
-              ) : (
-                <Input
-                  label='Valor por parcela (R$)'
-                  computed
-                  type='number'
-                  value={resolvedInstallmentAmount > 0 ? resolvedInstallmentAmount.toFixed(2) : ''}
-                />
-              )}
-
-              {/* Right cell: Total a pagar */}
-              {calcMode === 'byTotal' ? (
-                <Input
-                  label='Total a pagar (R$)'
-                  required
-                  type='number'
-                  min={0}
-                  step={0.01}
-                  value={totalToPay || ''}
-                  placeholder='0,00'
-                  onChange={(e) => setTotalToPay(Number(e.target.value))}
-                />
-              ) : (
-                <Input
-                  label='Total a pagar (R$)'
-                  computed
-                  type='number'
-                  value={resolvedTotalToPay > 0 ? resolvedTotalToPay.toFixed(2) : ''}
-                />
-              )}
-            </div>
-
-            {/* Optional rates */}
+            {/* Interdependent pair — last edited drives the other */}
             <div className='grid gap-4 md:grid-cols-2'>
               <Input
-                label='Juros (a.m.) % (opcional)'
+                label='Valor por parcela (R$)'
+                required
                 type='number'
                 min={0}
                 step={0.01}
-                value={interestRateMonthlyPct || ''}
-                onChange={(e) => setInterestRateMonthlyPct(Number(e.target.value))}
+                value={installmentDisplayValue}
+                placeholder='0,00'
+                onChange={(e) => {
+                  setInstallmentAmountRaw(Number(e.target.value));
+                  setPrimaryField('installmentAmount');
+                }}
               />
-
               <Input
-                label='CET (a.a.) % (opcional)'
+                label='Juros (a.m.) %'
+                required
                 type='number'
                 min={0}
                 step={0.01}
-                value={cetAnnualPct || ''}
-                onChange={(e) => setCetAnnualPct(Number(e.target.value))}
+                value={interestDisplayValue}
+                placeholder='0,00'
+                onChange={(e) => {
+                  setInterestRateRaw(Number(e.target.value));
+                  setPrimaryField('interestRate');
+                }}
+              />
+            </div>
+            <p className='text-xs text-slate-400 -mt-4'>
+              Informe o valor da parcela ou a taxa de juros — o outro campo será calculado automaticamente.
+            </p>
+
+            {/* Always-computed outputs */}
+            <div className='grid gap-4 md:grid-cols-2'>
+              <Input
+                label='Total a pagar (R$)'
+                computed
+                type='number'
+                value={resolved.totalToPay > 0 ? resolved.totalToPay.toFixed(2) : ''}
+              />
+              <Input
+                label='CET (a.a.) %'
+                computed
+                type='number'
+                value={resolved.cet != null ? resolved.cet.toFixed(2) : ''}
               />
             </div>
           </div>
@@ -245,7 +242,6 @@ export function NewLoanPage() {
             <Button variant='ghost' onClick={() => nav('/')}>
               Cancelar
             </Button>
-
             <Button disabled={!canSubmit} onClick={onSubmit}>
               Criar empréstimo
             </Button>

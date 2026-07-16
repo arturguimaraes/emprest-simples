@@ -73,12 +73,22 @@ export function LoanDetailsPage() {
         <div>
           <h1 className='text-2xl font-bold'>{loan.name}</h1>
           <p className='text-slate-600'>
-            Valor: <b>{formatMoney(loan.principalAmountCents)}</b>
+            Valor emprestado: <b>{formatMoney(loan.principalAmountCents)}</b>
             {loan.downPaymentAmountCents ? (
               <> • Entrada: <b>{formatMoney(loan.downPaymentAmountCents)}</b></>
             ) : null}
-            {' '}• Total nas parcelas: <b>{formatMoney(loan.totalToPayCents)}</b> • Parcelas:{' '}
-            <b>{loan.installmentsCount}</b>
+            {' '}• Total nas parcelas: <b>{formatMoney(loan.totalToPayCents)}</b>
+            {' '}• Custo total: <b>{formatMoney((loan.downPaymentAmountCents ?? 0) + loan.totalToPayCents)}</b>
+            {' '}• Parcelas: <b>{loan.installmentsCount}</b>
+            {loan.interestRateMonthlyPct != null ? (
+              <> • Juros: <b>{loan.interestRateMonthlyPct.toFixed(2)}% a.m.</b></>
+            ) : null}
+            {loan.cetAnnualPct != null ? (
+              <> • CET: <b>{loan.cetAnnualPct.toFixed(2)}% a.a.</b></>
+            ) : null}
+          </p>
+          <p className='mt-1 text-xs text-slate-400'>
+            Criado em {new Date(loan.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
           </p>
         </div>
 
@@ -123,7 +133,7 @@ export function LoanDetailsPage() {
             <div className='text-xl font-bold'>{formatMoney(summary.savingsCents)}</div>
           </CardHeader>
           <CardContent>
-            <div className='text-sm text-slate-600'>(Previsto − custo projetado)</div>
+            <div className='text-sm text-slate-600'>Total contratado − projeção atual</div>
           </CardContent>
         </Card>
       </div>

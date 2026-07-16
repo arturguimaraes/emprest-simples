@@ -41,19 +41,50 @@ installment.dueDate    = firstDueDate + (number - 1) months
 
 Installments are generated once on creation by `createInstallments()` in `loans.utils.ts`. The last installment absorbs any rounding remainder so the sum matches `totalToPayCents` exactly.
 
-## Loan Creation — Calc Modes
+## Loan Creation — Form Logic
 
-The new loan form (`NewLoanPage.tsx`) has three modes for deriving the installment breakdown. The user picks one; the other fields are auto-computed (shown as read-only with a "(calculado)" label):
+The new loan form (`NewLoanPage.tsx`) has no mode selector. All fields are always visible.
 
-| Mode | User enters | Auto-computed |
+### Required fields (user must fill)
+
+| Field | State var | Notes |
 |---|---|---|
-| **`perInstallment`** — "Valor por parcela" | `installmentsCount` + `installmentAmount` | `totalToPayCents = count × amount` |
-| **`byPrincipal`** — "Valor emprestado" | `principal` + `downPayment` + `installmentsCount` | `totalToPayCents = principal − downPayment`; `installmentAmount = totalToPayCents / count` |
-| **`total`** — "Total a pagar" | `installmentsCount` + `totalToPay` | `installmentAmount = totalToPay / count` |
+| Nome | `name` | Free text |
+| 1º vencimento | `firstDueDate` | Date picker, defaults to today |
+| Valor emprestado | `principal` | Full loan principal (R$) |
+| Entrada | `downPayment` | Down payment; default 0, but required (blocks submit if `financed ≤ 0`) |
+| Quantidade de parcelas | `installmentsCount` | Integer ≥ 1 |
 
-Mode `byPrincipal` assumes no extra interest — the full financed amount (`principal − downPayment`) is split equally. For interest-bearing loans the user should use mode `byTotal` or `perInstallment` to enter the real amounts.
+`financed = max(0, principal − downPayment)` — the amount actually financed.
 
-`interestRateMonthlyPct` and `cetAnnualPct` are always optional and informational — they are stored but not used in any computation.
+### Interdependent pair — last edited wins
+
+One of the two fields below drives computation of the other. The state var `primaryField: 'installmentAmount' | 'interestRate'` tracks which was last edited.
+
+| Field | When primary | When secondary |
+|---|---|---|
+| Valor por parcela (R$) | User-typed raw value | Price formula: `PMT = PV·i / (1−(1+i)^−n)` |
+| Juros (a.m.) % | User-typed raw value | Bisection solver on Price formula (`solveMonthlyRate`) |
+
+Display rule: primary field shows the raw number the user typed; secondary field shows the computed value formatted to 2 decimal places (or blank when undetermined).
+
+### Always auto-computed (read-only, `computed` prop)
+
+| Field | Formula |
+|---|---|
+| Total a pagar (R$) | `downPayment + installmentsCount × installmentAmount` |
+| CET (a.a.) % | `((1 + monthlyRate)^12 − 1) × 100` via `cetFromMonthlyRate()` |
+
+`totalToPayCents` **stored on the loan** = installments total only (excludes down payment). Down payment is stored separately in `downPaymentAmountCents`.
+
+### Submit guard (`canSubmit`)
+
+```
+name non-empty AND principal > 0 AND financed > 0 AND
+installmentsCount > 0 AND firstDueDate valid AND resolved.installment > 0
+```
+
+`interestRateMonthlyPct` and `cetAnnualPct` are always optional and informational — they are stored but not used in any post-creation computation.
 
 ## Firestore Schema
 
