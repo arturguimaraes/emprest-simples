@@ -9,6 +9,14 @@ type Props = {
   onUpdatePaidDate: (installmentId: string, dateISO: string) => void;
 };
 
+function discountLabel(expectedCents: number, paidCents: number): { text: string; color: string } | null {
+  if (expectedCents === 0) return null;
+  const pct = ((expectedCents - paidCents) / expectedCents) * 100;
+  if (Math.abs(pct) < 0.01) return null;
+  if (pct > 0) return { text: `${pct.toFixed(1)}% desc.`, color: 'text-green-600' };
+  return { text: `${Math.abs(pct).toFixed(1)}% acrésc.`, color: 'text-red-500' };
+}
+
 export function InstallmentsTable({
   loan,
   onTogglePaid,
@@ -26,11 +34,17 @@ export function InstallmentsTable({
             <th className='px-4 py-3'>Pago?</th>
             <th className='px-4 py-3'>Valor pago</th>
             <th className='px-4 py-3'>Data pagamento</th>
+            <th className='px-4 py-3'>Ajuste</th>
           </tr>
         </thead>
 
         <tbody>
           {loan.installments.map((it) => {
+            const discount =
+              it.paid && it.paidAmountCents != null
+                ? discountLabel(it.expectedAmountCents, it.paidAmountCents)
+                : null;
+
             return (
               <tr key={it.id} className='border-t border-slate-100'>
                 <td className='px-4 py-3 font-medium'>{it.number}</td>
@@ -67,6 +81,14 @@ export function InstallmentsTable({
                       value={it.paidDate ?? todayISODate()}
                       onChange={(e) => onUpdatePaidDate(it.id, e.target.value)}
                     />
+                  ) : (
+                    <span className='text-slate-400'>—</span>
+                  )}
+                </td>
+
+                <td className='px-4 py-3'>
+                  {discount ? (
+                    <span className={`font-medium ${discount.color}`}>{discount.text}</span>
                   ) : (
                     <span className='text-slate-400'>—</span>
                   )}
