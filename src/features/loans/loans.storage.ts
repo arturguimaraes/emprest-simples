@@ -1,34 +1,37 @@
+import { collection, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 import type { Loan } from './loans.types';
 
-const STORAGE_KEY = 'emprest-simples:v1';
+const COL = 'loans';
 
-type StorageShapeV1 = {
-  version: 1;
-  loans: Loan[];
-};
+export const loansCol = collection(db, COL);
 
-export function loadLoans(): Loan[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-
-    const parsed = JSON.parse(raw) as StorageShapeV1;
-
-    if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.loans)) {
-      return [];
-    }
-
-    return parsed.loans;
-  } catch {
-    return [];
-  }
+function loanDocRef(loanId: string) {
+  return doc(db, COL, loanId);
 }
 
-export function saveLoans(loans: Loan[]): void {
-  const payload: StorageShapeV1 = {
-    version: 1,
-    loans,
-  };
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+// Firestore doesn't accept `undefined` field values — strip them via JSON round-trip
+function clean<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj)) as T;
 }
+
+export async function persistLoan(loan: Loan): Promise<void> {
+  await setDoc(loanDocRef(loan.id), clean(loan));
+}
+
+export async function removeLoan(loanId: string): Promise<void> {
+  await deleteDoc(loanDocRef(loanId));
+}
+
+export async function patchLoan(loanId: string, patch: Partial<Loan>): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await updateDoc(loanDocRef(loanId), clean(patch) as any);
+}
+
+export async function patchInstallments(
+  loanId: string,
+  installments: Loan['installments'],
+): Promise<void> {
+  await updateDoc(loanDocRef(loanId), { installments: clean(installments) });
+}
+

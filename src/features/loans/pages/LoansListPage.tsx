@@ -2,10 +2,8 @@ import { Link } from 'react-router-dom';
 import { useLoans } from '../loans.context';
 import { LoanCard } from '../components/LoanCard';
 import { Button } from '../../../shared/ui/Button';
-import { BackupControls } from '../components/BackupControls';
-
 export function LoansListPage() {
-  const { loans } = useLoans();
+  const { loans, loading } = useLoans();
 
   return (
     <div className='mx-auto max-w-3xl p-6'>
@@ -20,12 +18,12 @@ export function LoansListPage() {
         </Link>
       </header>
 
-      <div className='mt-6'>
-        <BackupControls />
-      </div>
-
       <div className='mt-6 grid gap-3'>
-        {loans.length === 0 ? (
+        {loading ? (
+          <div className='rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-400'>
+            Carregando...
+          </div>
+        ) : loans.length === 0 ? (
           <div className='rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-600'>
             Nenhum empréstimo ainda. Clique em <b>Novo empréstimo</b> para começar.
           </div>
