@@ -9,7 +9,7 @@ import { formatMoney, todayISODate } from '../loans.utils';
 export function LoanDetailsPage() {
   const nav = useNavigate();
   const { loanId } = useParams<{ loanId: string }>();
-  const { loans, deleteLoan, updateInstallment, updateLoan } = useLoans();
+  const { loans, deleteLoan, updateInstallment, updateLoan, replaceAllInstallments } = useLoans();
 
   const loan = loans.find((l) => l.id === loanId);
 
@@ -59,6 +59,20 @@ export function LoanDetailsPage() {
 
   function onUpdatePaidDate(installmentId: string, dateISO: string) {
     updateInstallment(loan!.id, installmentId, { paidDate: dateISO });
+    touchUpdatedAt();
+  }
+
+  function onToggleAllPaid() {
+    const allPaid = loan!.installments.every((i) => i.paid);
+    const today = todayISODate();
+    const updated = loan!.installments.map((it) =>
+      allPaid
+        ? { ...it, paid: false, paidAmountCents: undefined, paidDate: undefined }
+        : it.paid
+          ? it
+          : { ...it, paid: true, paidAmountCents: it.expectedAmountCents, paidDate: today },
+    );
+    replaceAllInstallments(loan!.id, updated);
     touchUpdatedAt();
   }
 
@@ -139,7 +153,34 @@ export function LoanDetailsPage() {
       </div>
 
       <div className='mt-6'>
-        <h2 className='mb-3 text-lg font-semibold'>Parcelas</h2>
+        {(() => {
+          const pct = loan.installmentsCount > 0
+            ? (summary.paidInstallmentsCount / loan.installmentsCount) * 100
+            : 0;
+          const barColor =
+            pct >= 100 ? 'bg-green-500' : pct > 50 ? 'bg-blue-500' : 'bg-yellow-400';
+          return (
+            <div className='mb-6'>
+              <div className='mb-1 flex justify-between text-xs text-slate-500'>
+                <span>{summary.paidInstallmentsCount} de {loan.installmentsCount} parcelas pagas</span>
+                <span>{pct.toFixed(0)}%</span>
+              </div>
+              <div className='h-2.5 w-full overflow-hidden rounded-full bg-slate-100'>
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          );
+        })()}
+
+        <div className='mb-3 flex items-center justify-between'>
+          <h2 className='text-lg font-semibold'>Parcelas</h2>
+          <Button variant='ghost' onClick={onToggleAllPaid}>
+            {loan.installments.every((i) => i.paid) ? 'Desmarcar todas' : 'Marcar todas como pagas'}
+          </Button>
+        </div>
 
         <InstallmentsTable
           loan={loan}
