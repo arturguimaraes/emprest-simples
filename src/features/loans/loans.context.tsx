@@ -1,107 +1,58 @@
-import React, { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { onSnapshot } from 'firebase/firestore';
 import type { EntityId, Loan } from './loans.types';
-import { loadLoans, saveLoans } from './loans.storage';
-
-type State = {
-  loans: Loan[];
-};
-
-type Action =
-  | { type: 'ADD_LOAN'; payload: Loan }
-  | { type: 'DELETE_LOAN'; payload: { loanId: EntityId } }
-  | { type: 'UPDATE_LOAN'; payload: { loanId: EntityId; patch: Partial<Loan> } }
-  | {
-      type: 'UPDATE_INSTALLMENT';
-      payload: {
-        loanId: EntityId;
-        installmentId: EntityId;
-        patch: Partial<Loan['installments'][number]>;
-      };
-    }
-  | { type: 'SET_LOANS'; payload: Loan[] };
-
-function reducer(state: State, action: Action): State {
-  switch (action.type) {
-    case 'ADD_LOAN': {
-      return { loans: [action.payload, ...state.loans] };
-    }
-
-    case 'DELETE_LOAN': {
-      const { loanId } = action.payload;
-      return { loans: state.loans.filter((l) => l.id !== loanId) };
-    }
-
-    case 'UPDATE_LOAN': {
-      const { loanId, patch } = action.payload;
-      return {
-        loans: state.loans.map((l) => (l.id === loanId ? { ...l, ...patch } : l)),
-      };
-    }
-
-    case 'UPDATE_INSTALLMENT': {
-      const { loanId, installmentId, patch } = action.payload;
-      return {
-        loans: state.loans.map((l) => {
-          if (l.id !== loanId) return l;
-          return {
-            ...l,
-            installments: l.installments.map((it) =>
-              it.id === installmentId ? { ...it, ...patch } : it,
-            ),
-          };
-        }),
-      };
-    }
-
-    case 'SET_LOANS': {
-      return { loans: action.payload };
-    }
-
-    default:
-      return state;
-  }
-}
+import { loansCol, persistLoan, removeLoan, patchLoan, patchInstallments } from './loans.storage';
 
 type LoansContextValue = {
   loans: Loan[];
-
-  addLoan: (loan: Loan) => void;
-  deleteLoan: (loanId: EntityId) => void;
-  updateLoan: (loanId: EntityId, patch: Partial<Loan>) => void;
+  loading: boolean;
+  addLoan: (loan: Loan) => Promise<void>;
+  deleteLoan: (loanId: EntityId) => Promise<void>;
+  updateLoan: (loanId: EntityId, patch: Partial<Loan>) => Promise<void>;
   updateInstallment: (
     loanId: EntityId,
     installmentId: EntityId,
     patch: Partial<Loan['installments'][number]>,
-  ) => void;
-  setLoans: (loans: Loan[]) => void;
+  ) => Promise<void>;
 };
 
 const LoansContext = createContext<LoansContextValue | null>(null);
 
 export function LoansProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, () => ({
-    loans: loadLoans(),
-  }));
+  const [loans, setLoansState] = useState<Loan[]>([]);
+  const [loading, setLoading] = useState(true);
+  // Ref so closures inside useMemo always see the latest loans without re-memoizing
+  const loansRef = useRef<Loan[]>([]);
+  loansRef.current = loans;
 
   useEffect(() => {
-    saveLoans(state.loans);
-  }, [state.loans]);
+    const unsub = onSnapshot(loansCol, (snapshot) => {
+      const data = snapshot.docs.map((d) => d.data() as Loan);
+      data.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      setLoansState(data);
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
 
-  const value = useMemo<LoansContextValue>(() => {
-    return {
-      loans: state.loans,
-
-      addLoan: (loan) => dispatch({ type: 'ADD_LOAN', payload: loan }),
-      deleteLoan: (loanId) => dispatch({ type: 'DELETE_LOAN', payload: { loanId } }),
-      updateLoan: (loanId, patch) => dispatch({ type: 'UPDATE_LOAN', payload: { loanId, patch } }),
-      updateInstallment: (loanId, installmentId, patch) =>
-        dispatch({
-          type: 'UPDATE_INSTALLMENT',
-          payload: { loanId, installmentId, patch },
-        }),
-      setLoans: (loans) => dispatch({ type: 'SET_LOANS', payload: loans }),
-    };
-  }, [state.loans]);
+  const value = useMemo<LoansContextValue>(
+    () => ({
+      loans,
+      loading,
+      addLoan: (loan) => persistLoan(loan),
+      deleteLoan: (loanId) => removeLoan(loanId),
+      updateLoan: (loanId, patch) => patchLoan(loanId, patch),
+      updateInstallment: (loanId, installmentId, patch) => {
+        const loan = loansRef.current.find((l) => l.id === loanId);
+        if (!loan) return Promise.resolve();
+        const installments = loan.installments.map((it) =>
+          it.id === installmentId ? { ...it, ...patch } : it,
+        );
+        return patchInstallments(loanId, installments);
+      },
+    }),
+    [loans, loading],
+  );
 
   return <LoansContext.Provider value={value}>{children}</LoansContext.Provider>;
 }
