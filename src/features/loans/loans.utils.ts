@@ -46,7 +46,7 @@ export function createInstallments(params: {
 
   if (installmentsCount <= 0) return [];
 
-  // divisão em centavos com ajuste no último para bater exatamente
+  // split into cents with remainder absorbed by the last installment
   const base = Math.floor(totalToPayCents / installmentsCount);
   const remainder = totalToPayCents - base * installmentsCount;
 

@@ -17,8 +17,9 @@ export type Loan = {
   id: EntityId;
   name: string;
 
-  principalAmountCents: number; // valor emprestado
-  totalToPayCents: number; // total previsto originalmente
+  principalAmountCents: number;
+  downPaymentAmountCents?: number;
+  totalToPayCents: number; // total paid through installments, excludes down payment
 
   interestRateMonthlyPct?: number; // opcional
   cetAnnualPct?: number; // opcional

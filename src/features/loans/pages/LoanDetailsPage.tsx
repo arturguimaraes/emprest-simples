@@ -73,8 +73,12 @@ export function LoanDetailsPage() {
         <div>
           <h1 className='text-2xl font-bold'>{loan.name}</h1>
           <p className='text-slate-600'>
-            Valor: <b>{formatMoney(loan.principalAmountCents)}</b> • Total a pagar:{' '}
-            <b>{formatMoney(loan.totalToPayCents)}</b> • Parcelas: <b>{loan.installmentsCount}</b>
+            Valor: <b>{formatMoney(loan.principalAmountCents)}</b>
+            {loan.downPaymentAmountCents ? (
+              <> • Entrada: <b>{formatMoney(loan.downPaymentAmountCents)}</b></>
+            ) : null}
+            {' '}• Total nas parcelas: <b>{formatMoney(loan.totalToPayCents)}</b> • Parcelas:{' '}
+            <b>{loan.installmentsCount}</b>
           </p>
         </div>
 

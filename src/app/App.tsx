@@ -11,7 +11,7 @@ export function App() {
         <Routes>
           <Route path='/' element={<LoansListPage />} />
           <Route path='/novo' element={<NewLoanPage />} />
-          <Route path='/emprestimo/:loanId' element={<LoanDetailsPage />} />
+          <Route path='/loan/:loanId' element={<LoanDetailsPage />} />
         </Routes>
         <Footer />
       </div>

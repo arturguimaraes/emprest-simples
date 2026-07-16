@@ -13,7 +13,7 @@ export function LoanCard({ loan }: { loan: Loan }) {
 
   return (
     <Link
-      to={`/emprestimo/${loan.id}`}
+      to={`/loan/${loan.id}`}
       className='block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300'
     >
       <div className='flex items-start justify-between gap-4'>
