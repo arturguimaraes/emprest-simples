@@ -12,12 +12,14 @@ jobs:
     permissions:
       pages: write
       id-token: write
-      contents: read
+      contents: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -25,6 +27,13 @@ jobs:
           cache: 'npm'
 
       - run: npm ci
+
+      - name: Bump patch version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          npm version patch -m "chore: release %s [skip ci]"
+          git push --follow-tags
 
       - run: npm run build
 
