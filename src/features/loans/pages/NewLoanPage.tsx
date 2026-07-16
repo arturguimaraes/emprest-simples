@@ -63,7 +63,7 @@ export function NewLoanPage() {
   }
 
   return (
-    <div className='mx-auto max-w-3xl p-6'>
+    <div className='mx-auto max-w-5xl p-6'>
       <header className='flex items-center justify-between'>
         <div>
           <h1 className='text-2xl font-bold'>Novo empréstimo</h1>
@@ -84,6 +84,7 @@ export function NewLoanPage() {
           <div className='grid gap-4 md:grid-cols-2'>
             <Input
               label='Nome'
+              required
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder='Ex: Nubank - Parcelado'
@@ -91,6 +92,7 @@ export function NewLoanPage() {
 
             <Input
               label='Quantidade de parcelas'
+              required
               type='number'
               min={1}
               value={installmentsCount}
@@ -99,6 +101,7 @@ export function NewLoanPage() {
 
             <Input
               label='Valor emprestado (R$)'
+              required
               type='number'
               min={0}
               step={0.01}
@@ -108,6 +111,7 @@ export function NewLoanPage() {
 
             <Input
               label='Total a pagar (R$)'
+              required
               type='number'
               min={0}
               step={0.01}
@@ -117,29 +121,29 @@ export function NewLoanPage() {
 
             <Input
               label='1º vencimento'
+              required
               type='date'
               value={firstDueDate}
               onChange={(e) => setFirstDueDate(e.target.value)}
             />
 
-            <div className='grid gap-4 md:grid-cols-2'>
-              <Input
-                label='Juros (a.m.) % (opcional)'
-                type='number'
-                min={0}
-                step={0.01}
-                value={interestRateMonthlyPct}
-                onChange={(e) => setInterestRateMonthlyPct(Number(e.target.value))}
-              />
-              <Input
-                label='CET (a.a.) % (opcional)'
-                type='number'
-                min={0}
-                step={0.01}
-                value={cetAnnualPct}
-                onChange={(e) => setCetAnnualPct(Number(e.target.value))}
-              />
-            </div>
+            <Input
+              label='Juros (a.m.) % (opcional)'
+              type='number'
+              min={0}
+              step={0.01}
+              value={interestRateMonthlyPct}
+              onChange={(e) => setInterestRateMonthlyPct(Number(e.target.value))}
+            />
+
+            <Input
+              label='CET (a.a.) % (opcional)'
+              type='number'
+              min={0}
+              step={0.01}
+              value={cetAnnualPct}
+              onChange={(e) => setCetAnnualPct(Number(e.target.value))}
+            />
           </div>
 
           <div className='mt-6 flex items-center justify-end gap-3'>
