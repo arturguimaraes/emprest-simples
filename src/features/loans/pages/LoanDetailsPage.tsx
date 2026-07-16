@@ -60,6 +60,18 @@ export function LoanDetailsPage() {
   const economyPct =
     loan.totalToPayCents > 0 ? (summary.savingsCents / loan.totalToPayCents) * 100 : 0;
 
+  // Paid installments sorted by paid date (then by number as tiebreaker)
+  const paidInstallments = loan.installments
+    .filter((i) => i.paid)
+    .sort((a, b) => {
+      const dateCmp = (a.paidDate ?? a.dueDate).localeCompare(b.paidDate ?? b.dueDate);
+      return dateCmp !== 0 ? dateCmp : a.number - b.number;
+    });
+
+  const unpaidInstallments = loan.installments
+    .filter((i) => !i.paid)
+    .sort((a, b) => a.number - b.number);
+
   // --- navigation guards ---
 
   function requestNav(target: string) {
@@ -242,17 +254,16 @@ export function LoanDetailsPage() {
       {/* VIEW mode */}
       {!isEditing && (
         <>
-          <div className='mt-6 grid gap-4 md:grid-cols-3'>
+          {/* Summary cards */}
+          <div className='mt-6 grid grid-cols-2 gap-4 md:grid-cols-4'>
             <Card>
               <CardHeader>
                 <div className='text-sm text-slate-600'>Pago até agora</div>
                 <div className='text-xl font-bold'>{formatMoney(summary.paidSoFarCents)}</div>
               </CardHeader>
               <CardContent>
-                <div className='text-sm text-slate-600'>
-                  {paidPct.toFixed(1)}% do custo total
-                </div>
-                <div className='text-xs text-slate-400 mt-0.5'>
+                <div className='text-sm text-slate-600'>{paidPct.toFixed(1)}% do custo total</div>
+                <div className='mt-0.5 text-xs text-slate-400'>
                   {summary.paidInstallmentsCount}/{loan.installmentsCount} parcelas
                   {loan.downPaymentAmountCents ? ' + entrada' : ''}
                 </div>
@@ -265,10 +276,8 @@ export function LoanDetailsPage() {
                 <div className='text-xl font-bold'>{formatMoney(summary.remainingExpectedCents)}</div>
               </CardHeader>
               <CardContent>
-                <div className='text-sm text-slate-600'>
-                  {remainingPct.toFixed(1)}% do custo total
-                </div>
-                <div className='text-xs text-slate-400 mt-0.5'>
+                <div className='text-sm text-slate-600'>{remainingPct.toFixed(1)}% do custo total</div>
+                <div className='mt-0.5 text-xs text-slate-400'>
                   {summary.openInstallmentsCount} parcelas restantes
                 </div>
               </CardContent>
@@ -295,17 +304,54 @@ export function LoanDetailsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <div className='text-sm text-slate-600'>Economia acumulada</div>
+                <div
+                  className={`text-xl font-bold ${summary.savingsCents > 0 ? 'text-green-600' : summary.savingsCents < 0 ? 'text-red-500' : ''}`}
+                >
+                  {formatMoney(summary.savingsCents)}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className='text-sm text-slate-600'>
+                  {summary.savingsCents > 0
+                    ? `${economyPct.toFixed(1)}% do total contratado`
+                    : summary.savingsCents < 0
+                      ? 'Acréscimo em relação ao previsto'
+                      : 'Sem economia registrada'}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {summary.savingsCents > 0 && (
-            <p className='mt-3 text-sm font-medium text-green-600'>
-              Economia acumulada: {formatMoney(summary.savingsCents)} ({economyPct.toFixed(1)}% do total contratado)
-            </p>
-          )}
-
-          <div className='mt-6 flex justify-end'>
+          <div className='mt-4 flex justify-end'>
             <Button onClick={enterEditMode}>Editar parcelas</Button>
           </div>
+
+          {/* Paid installments */}
+          {paidInstallments.length > 0 && (
+            <div className='mt-8'>
+              <h2 className='mb-3 text-lg font-semibold'>Parcelas pagas</h2>
+              <InstallmentsTable
+                readOnly
+                loan={{ ...loan, installments: paidInstallments }}
+              />
+            </div>
+          )}
+
+          {/* Unpaid installments */}
+          {unpaidInstallments.length > 0 && (
+            <div className='mt-8'>
+              <h2 className='mb-3 text-lg font-semibold'>Parcelas em aberto</h2>
+              <InstallmentsTable
+                readOnly
+                loan={{ ...loan, installments: unpaidInstallments }}
+              />
+            </div>
+          )}
+
         </>
       )}
 
