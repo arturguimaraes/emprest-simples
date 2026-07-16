@@ -12,7 +12,7 @@ export function Footer() {
       >
         {__COMMIT_SHA__}
       </a>
-      ) · {__BUILD_DATE__}
+      ) · {__BUILD_DATE__} {__BUILD_TIME__} UTC
     </footer>
   );
 }
