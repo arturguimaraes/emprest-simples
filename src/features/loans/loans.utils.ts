@@ -64,6 +64,36 @@ export function createInstallments(params: {
   });
 }
 
+/**
+ * Solves for the monthly interest rate given PV (present value), PMT (payment),
+ * and n (number of periods) using the bisection method on the Price annuity formula.
+ * Returns the rate as a fraction (e.g. 0.015 for 1.5% p.m.), or null if not solvable.
+ */
+export function solveMonthlyRate(pv: number, pmt: number, n: number): number | null {
+  if (pv <= 0 || pmt <= 0 || n <= 0) return null;
+  if (pmt * n <= pv) return null; // total payments ≤ principal — no positive rate exists
+
+  // f(r) = pmt * (1 - (1+r)^-n) / r — decreasing from pmt*n (at r→0) toward 0 (at r→∞)
+  // We want f(r) = pv, so bisect between lo and hi
+  let lo = 1e-10;
+  let hi = 10; // 1000% monthly is an absurd upper bound
+
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2;
+    const val = pmt * (1 - Math.pow(1 + mid, -n)) / mid;
+    if (val > pv) lo = mid;
+    else hi = mid;
+  }
+
+  const rate = (lo + hi) / 2;
+  return rate > 0 ? rate : null;
+}
+
+/** Converts a monthly rate (fraction) to CET annual percentage. */
+export function cetFromMonthlyRate(monthlyRate: number): number {
+  return (Math.pow(1 + monthlyRate, 12) - 1) * 100;
+}
+
 export function cryptoId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();

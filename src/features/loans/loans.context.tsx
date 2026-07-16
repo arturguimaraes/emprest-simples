@@ -14,6 +14,7 @@ type LoansContextValue = {
     installmentId: EntityId,
     patch: Partial<Loan['installments'][number]>,
   ) => Promise<void>;
+  replaceAllInstallments: (loanId: EntityId, installments: Loan['installments']) => Promise<void>;
 };
 
 const LoansContext = createContext<LoansContextValue | null>(null);
@@ -50,6 +51,7 @@ export function LoansProvider({ children }: { children: React.ReactNode }) {
         );
         return patchInstallments(loanId, installments);
       },
+      replaceAllInstallments: (loanId, installments) => patchInstallments(loanId, installments),
     }),
     [loans, loading],
   );
