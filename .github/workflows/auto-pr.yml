@@ -1,0 +1,25 @@
+name: Auto PR to Main
+
+on:
+  push:
+    branches: [development]
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base main \
+            --head development \
+            --title "chore: sync development → main" \
+            --body "Automated PR created on push to \`development\`." \
+          || echo "PR already exists or branches are identical — skipping."

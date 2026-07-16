@@ -17,7 +17,8 @@ type Action =
         installmentId: EntityId;
         patch: Partial<Loan['installments'][number]>;
       };
-    };
+    }
+  | { type: 'SET_LOANS'; payload: Loan[] };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -52,6 +53,10 @@ function reducer(state: State, action: Action): State {
       };
     }
 
+    case 'SET_LOANS': {
+      return { loans: action.payload };
+    }
+
     default:
       return state;
   }
@@ -68,6 +73,7 @@ type LoansContextValue = {
     installmentId: EntityId,
     patch: Partial<Loan['installments'][number]>,
   ) => void;
+  setLoans: (loans: Loan[]) => void;
 };
 
 const LoansContext = createContext<LoansContextValue | null>(null);
@@ -93,6 +99,7 @@ export function LoansProvider({ children }: { children: React.ReactNode }) {
           type: 'UPDATE_INSTALLMENT',
           payload: { loanId, installmentId, patch },
         }),
+      setLoans: (loans) => dispatch({ type: 'SET_LOANS', payload: loans }),
     };
   }, [state.loans]);
 

@@ -1,73 +1,83 @@
-# React + TypeScript + Vite
+# 💸 Emprest Simples
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Emprest Simples** é um mini-sistema web para acompanhar **financiamentos / empréstimos** de forma simples, prática e offline-first (usando **LocalStorage**).
 
-Currently, two official plugins are available:
+A ideia é permitir que você cadastre um empréstimo com seus principais dados e depois acompanhe **parcela por parcela**, marcando pagamentos, ajustando valores e vendo um resumo claro do quanto já foi pago, quanto falta e quanto você economizou.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## ✅ Funcionalidades
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 📌 Cadastro de empréstimos
 
-## Expanding the ESLint configuration
+- Nome do empréstimo (para fácil identificação)
+- Valor emprestado (principal)
+- Total previsto a pagar
+- Número de parcelas
+- Data do primeiro vencimento
+- (Opcional) juros a.m. e CET a.a.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 📋 Lista de empréstimos
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Exibe todos os empréstimos cadastrados
+- Progresso de parcelas pagas (%)
+- Total previsto e total pago até o momento
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 🧾 Detalhes do empréstimo
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Tabela completa de parcelas
+- Marcar parcela como paga/não paga
+- Editar valor pago (ex: adiantamento, desconto, negociação)
+- Editar data real do pagamento
+
+### 📊 Resumo financeiro automático
+
+- **Pago até agora**
+- **Falta pagar (estimado)**
+- **Economia acumulada**  
+  Calculada por:
+  > Total previsto originalmente − (valor já pago + soma esperada das parcelas restantes)
+
+---
+
+## 🧱 Stack
+
+- ⚛️ React
+- 🟦 TypeScript
+- 🎨 Tailwind CSS (v4)
+- 💾 LocalStorage (persistência local)
+- 🧭 React Router
+
+---
+
+## 🚀 Rodando localmente
+
+### 1) Instalar dependências
+
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2) Rodar o projeto
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+npm run dev
+```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+O app estará disponível em:
+
+```bash
+http://localhost:5173
+```
+
+## 📦 Build de produção
+
+```bash
+npm run build
+```
+
+Os arquivos finais serão gerados em:
+
+```bash
+dist/
 ```
