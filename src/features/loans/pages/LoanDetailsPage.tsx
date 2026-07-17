@@ -157,32 +157,74 @@ export function LoanDetailsPage() {
 
   // --- save ---
 
-  function computeDiff(): string[] {
-    return draftInstallments.flatMap((draft) => {
+  type DiffChange =
+    | { type: 'paid';           number: number; expectedAmountCents: number; paidAmountCents: number; paidDate: string }
+    | { type: 'unpaid';         number: number; expectedAmountCents: number }
+    | { type: 'amount-changed'; number: number; expectedAmountCents: number; oldCents: number; newCents: number }
+    | { type: 'date-changed';   number: number; oldDate: string; newDate: string };
+
+  type DiffResult = {
+    changes: DiffChange[];
+    newlyPaidCents: number;
+    totalDiscountCents: number;
+    totalPaidAfterSaveCents: number;
+  };
+
+  function fmtDate(iso: string) {
+    if (!iso) return '—';
+    return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+    });
+  }
+
+  function computeDiff(): DiffResult {
+    const changes: DiffChange[] = [];
+
+    for (const draft of draftInstallments) {
       const original = loan.installments.find((i) => i.id === draft.id);
-      if (!original) return [];
-      const lines: string[] = [];
+      if (!original) continue;
 
       if (draft.paid !== original.paid) {
         if (draft.paid) {
-          lines.push(
-            `Parcela ${draft.number}: marcada como paga — ${formatMoney(draft.paidAmountCents ?? 0)} em ${draft.paidDate ?? ''}`,
-          );
+          changes.push({
+            type: 'paid',
+            number: draft.number,
+            expectedAmountCents: draft.expectedAmountCents,
+            paidAmountCents: draft.paidAmountCents ?? draft.expectedAmountCents,
+            paidDate: draft.paidDate ?? '',
+          });
         } else {
-          lines.push(`Parcela ${draft.number}: desmarcada`);
+          changes.push({ type: 'unpaid', number: draft.number, expectedAmountCents: draft.expectedAmountCents });
         }
       } else if (draft.paid) {
         if (draft.paidAmountCents !== original.paidAmountCents) {
-          lines.push(
-            `Parcela ${draft.number}: valor alterado para ${formatMoney(draft.paidAmountCents ?? 0)}`,
-          );
+          changes.push({
+            type: 'amount-changed',
+            number: draft.number,
+            expectedAmountCents: draft.expectedAmountCents,
+            oldCents: original.paidAmountCents ?? 0,
+            newCents: draft.paidAmountCents ?? 0,
+          });
         }
         if (draft.paidDate !== original.paidDate) {
-          lines.push(`Parcela ${draft.number}: data alterada para ${draft.paidDate}`);
+          changes.push({
+            type: 'date-changed',
+            number: draft.number,
+            oldDate: original.paidDate ?? '',
+            newDate: draft.paidDate ?? '',
+          });
         }
       }
-      return lines;
-    });
+    }
+
+    const newlyPaid = changes.filter((c): c is Extract<DiffChange, { type: 'paid' }> => c.type === 'paid');
+    const newlyPaidCents = newlyPaid.reduce((s, c) => s + c.paidAmountCents, 0);
+    const totalDiscountCents = newlyPaid.reduce((s, c) => s + (c.expectedAmountCents - c.paidAmountCents), 0);
+    const totalPaidAfterSaveCents =
+      (loan.downPaymentAmountCents ?? 0) +
+      draftInstallments.filter((i) => i.paid).reduce((s, i) => s + (i.paidAmountCents ?? 0), 0);
+
+    return { changes, newlyPaidCents, totalDiscountCents, totalPaidAfterSaveCents };
   }
 
   async function confirmSave() {
@@ -219,7 +261,7 @@ export function LoanDetailsPage() {
     if (e.key === 'Escape') cancelRename();
   }
 
-  const diff = showSaveConfirm ? computeDiff() : [];
+  const diffResult = showSaveConfirm ? computeDiff() : null;
 
   return (
     <div className='mx-auto max-w-5xl p-6'>
@@ -436,22 +478,106 @@ export function LoanDetailsPage() {
       )}
 
       {/* Save confirmation modal */}
-      {showSaveConfirm && (
+      {showSaveConfirm && diffResult && (
         <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'>
           <div className='w-full max-w-md rounded-2xl bg-white p-6 shadow-xl'>
             <h3 className='mb-3 text-lg font-semibold'>Confirmar alterações</h3>
-            <ul className='mb-4 space-y-1 text-sm text-slate-700'>
-              {diff.map((line, i) => (
-                <li key={i} className='rounded-lg bg-slate-50 px-3 py-1.5'>
-                  {line}
+
+            <ul className='mb-4 max-h-64 space-y-2 overflow-y-auto text-sm'>
+              {diffResult.changes.map((change, i) => (
+                <li key={i} className='rounded-lg bg-slate-50 px-3 py-2'>
+                  {change.type === 'paid' && (() => {
+                    const discount = change.expectedAmountCents - change.paidAmountCents;
+                    return (
+                      <div>
+                        <div className='font-medium text-slate-800'>
+                          Parcela {change.number} — paga
+                        </div>
+                        <div className='mt-1 flex flex-wrap gap-x-4 text-xs text-slate-500'>
+                          <span>Pago: <b className='text-slate-700'>{formatMoney(change.paidAmountCents)}</b></span>
+                          {discount !== 0 && <span>Esperado: {formatMoney(change.expectedAmountCents)}</span>}
+                          {change.paidDate && <span>Data: {fmtDate(change.paidDate)}</span>}
+                        </div>
+                        {discount !== 0 && (
+                          <div className={`mt-1 text-xs font-medium ${discount > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            {discount > 0 ? 'Desconto: −' : 'Acréscimo: +'}{formatMoney(Math.abs(discount))}
+                            {' '}({(Math.abs(discount) / change.expectedAmountCents * 100).toFixed(1)}%)
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {change.type === 'unpaid' && (
+                    <span className='text-slate-600'>
+                      <b>Parcela {change.number}</b> — desmarcada
+                    </span>
+                  )}
+
+                  {change.type === 'amount-changed' && (() => {
+                    const discount = change.expectedAmountCents - change.newCents;
+                    return (
+                      <div>
+                        <div className='font-medium text-slate-800'>Parcela {change.number} — valor alterado</div>
+                        <div className='mt-1 text-xs text-slate-500'>
+                          {formatMoney(change.oldCents)} → <b className='text-slate-700'>{formatMoney(change.newCents)}</b>
+                          <span className='ml-2 text-slate-400'>(esperado: {formatMoney(change.expectedAmountCents)})</span>
+                        </div>
+                        {discount !== 0 && (
+                          <div className={`mt-1 text-xs font-medium ${discount > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            {discount > 0 ? 'Desconto: −' : 'Acréscimo: +'}{formatMoney(Math.abs(discount))}
+                            {' '}({(Math.abs(discount) / change.expectedAmountCents * 100).toFixed(1)}%)
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {change.type === 'date-changed' && (
+                    <div>
+                      <div className='font-medium text-slate-800'>Parcela {change.number} — data alterada</div>
+                      <div className='mt-1 text-xs text-slate-500'>
+                        {fmtDate(change.oldDate)} → <b className='text-slate-700'>{fmtDate(change.newDate)}</b>
+                      </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
+
+            {/* Summary */}
+            <div className='mb-4 rounded-xl bg-slate-50 px-4 py-3 text-sm space-y-1.5'>
+              {diffResult.newlyPaidCents > 0 && (
+                <div className='flex justify-between text-slate-600'>
+                  <span>Pago nesta sessão</span>
+                  <span className='font-semibold text-slate-800'>{formatMoney(diffResult.newlyPaidCents)}</span>
+                </div>
+              )}
+              {diffResult.totalDiscountCents > 0 && (
+                <div className='flex justify-between text-green-600'>
+                  <span>Desconto total</span>
+                  <span className='font-semibold'>−{formatMoney(diffResult.totalDiscountCents)}</span>
+                </div>
+              )}
+              {diffResult.totalDiscountCents < 0 && (
+                <div className='flex justify-between text-red-500'>
+                  <span>Acréscimo total</span>
+                  <span className='font-semibold'>+{formatMoney(Math.abs(diffResult.totalDiscountCents))}</span>
+                </div>
+              )}
+              <div className={`flex justify-between text-slate-600 ${diffResult.newlyPaidCents > 0 ? 'border-t border-slate-200 pt-1.5' : ''}`}>
+                <span>Total pago até agora</span>
+                <span className='font-semibold text-slate-800'>{formatMoney(diffResult.totalPaidAfterSaveCents)}</span>
+              </div>
+            </div>
+
             <div className='flex justify-end gap-3'>
               <Button variant='ghost' onClick={() => setShowSaveConfirm(false)}>
                 Voltar
               </Button>
-              <Button onClick={confirmSave}>Confirmar</Button>
+              <Button onClick={confirmSave}>
+                <FontAwesomeIcon icon={faCheck} className='mr-2' />Confirmar
+              </Button>
             </div>
           </div>
         </div>
