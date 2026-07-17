@@ -39,12 +39,12 @@ function discountBadge(expectedCents: number, paidCents: number) {
   if (pct > 0)
     return (
       <span className='font-medium text-green-600'>
-        −{formatMoney(diffCents)} ({pct.toFixed(1)}% desc.)
+        {formatMoney(diffCents)} ({pct.toFixed(1)}% desc.)
       </span>
     );
   return (
     <span className='font-medium text-red-500'>
-      +{formatMoney(Math.abs(diffCents))} ({Math.abs(pct).toFixed(1)}% acrésc.)
+      {formatMoney(Math.abs(diffCents))} ({Math.abs(pct).toFixed(1)}% acrésc.)
     </span>
   );
 }
