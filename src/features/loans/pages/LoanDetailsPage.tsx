@@ -24,6 +24,7 @@ export function LoanDetailsPage() {
 
   const [isRenaming, setIsRenaming] = useState(false);
   const [draftName, setDraftName] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Rename so `loan` below is always Loan (not Loan | undefined) — closures stay safe
   const maybeLoan = loans.find((l) => l.id === loanId);
@@ -279,7 +280,7 @@ export function LoanDetailsPage() {
             <FontAwesomeIcon icon={faArrowLeft} className='mr-2' />Voltar
           </Button>
           {!isEditing && (
-            <Button variant='danger' onClick={onDeleteLoan}>
+            <Button variant='danger' onClick={() => setShowDeleteConfirm(true)}>
               <FontAwesomeIcon icon={faTrash} className='mr-2' />Excluir
             </Button>
           )}
@@ -451,6 +452,26 @@ export function LoanDetailsPage() {
                 Voltar
               </Button>
               <Button onClick={confirmSave}>Confirmar</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'>
+          <div className='w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl'>
+            <h3 className='mb-2 text-lg font-semibold'>Excluir empréstimo?</h3>
+            <p className='mb-4 text-sm text-slate-600'>
+              Tem certeza que deseja excluir <b>{loan.name}</b>? Esta ação não pode ser desfeita.
+            </p>
+            <div className='flex justify-end gap-3'>
+              <Button variant='ghost' onClick={() => setShowDeleteConfirm(false)}>
+                Cancelar
+              </Button>
+              <Button variant='danger' onClick={onDeleteLoan}>
+                <FontAwesomeIcon icon={faTrash} className='mr-2' />Excluir
+              </Button>
             </div>
           </div>
         </div>
