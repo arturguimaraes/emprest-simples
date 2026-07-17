@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useLoans } from '../loans.context';
 import { LoanCard } from '../components/LoanCard';
 import { Button } from '../../../shared/ui/Button';
@@ -14,7 +16,7 @@ export function LoansListPage() {
         </div>
 
         <Link to='/novo'>
-          <Button>+ Novo empréstimo</Button>
+          <Button><FontAwesomeIcon icon={faPlus} className='mr-2' />Novo empréstimo</Button>
         </Link>
       </header>
 

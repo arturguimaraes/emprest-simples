@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faCheck } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../shared/ui/Button';
 import { Input } from '../../../shared/ui/Input';
@@ -126,7 +128,7 @@ export function NewLoanPage() {
           <p className='text-slate-600'>Cadastre e acompanhe parcela por parcela.</p>
         </div>
         <Button variant='ghost' onClick={() => nav('/')}>
-          Voltar
+          <FontAwesomeIcon icon={faArrowLeft} className='mr-2' />Voltar
         </Button>
       </header>
 
@@ -240,10 +242,10 @@ export function NewLoanPage() {
 
           <div className='mt-6 flex items-center justify-end gap-3'>
             <Button variant='ghost' onClick={() => nav('/')}>
-              Cancelar
+              <FontAwesomeIcon icon={faArrowLeft} className='mr-2' />Cancelar
             </Button>
             <Button disabled={!canSubmit} onClick={onSubmit}>
-              Criar empréstimo
+              <FontAwesomeIcon icon={faCheck} className='mr-2' />Criar empréstimo
             </Button>
           </div>
         </CardContent>

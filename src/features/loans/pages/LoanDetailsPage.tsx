@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faCalendarDay, faCircleCheck, faClock, faPencil, faPiggyBank, faTrash, faPen, faCheck } from '@fortawesome/free-solid-svg-icons';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLoans } from '../loans.context';
 import { Button } from '../../../shared/ui/Button';
@@ -12,12 +14,16 @@ export function LoanDetailsPage() {
   const nav = useNavigate();
   const { loanId } = useParams<{ loanId: string }>();
   const { loans, deleteLoan, updateLoan, replaceAllInstallments } = useLoans();
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [draftInstallments, setDraftInstallments] = useState<Installment[]>([]);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [pendingNav, setPendingNav] = useState<string | null>(null);
+
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [draftName, setDraftName] = useState('');
 
   // Rename so `loan` below is always Loan (not Loan | undefined) — closures stay safe
   const maybeLoan = loans.find((l) => l.id === loanId);
@@ -190,6 +196,28 @@ export function LoanDetailsPage() {
     nav('/');
   }
 
+  function startRename() {
+    setDraftName(loan.name);
+    setIsRenaming(true);
+  }
+
+  async function confirmRename() {
+    const trimmed = draftName.trim();
+    if (trimmed && trimmed !== loan.name) {
+      await updateLoan(loan.id, { name: trimmed, updatedAt: new Date().toISOString() });
+    }
+    setIsRenaming(false);
+  }
+
+  function cancelRename() {
+    setIsRenaming(false);
+  }
+
+  function onRenameKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') confirmRename();
+    if (e.key === 'Escape') cancelRename();
+  }
+
   const diff = showSaveConfirm ? computeDiff() : [];
 
   return (
@@ -197,7 +225,30 @@ export function LoanDetailsPage() {
       {/* Header */}
       <header className='flex items-start justify-between gap-4'>
         <div>
-          <h1 className='text-2xl font-bold'>{loan.name}</h1>
+          {isRenaming ? (
+            <div className='flex items-center gap-2'>
+              <input
+                ref={renameInputRef}
+                autoFocus
+                className='text-2xl font-bold border-b-2 border-blue-500 bg-transparent outline-none w-full'
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                onKeyDown={onRenameKeyDown}
+                onBlur={confirmRename}
+              />
+            </div>
+          ) : (
+            <div className='flex items-center gap-2 group'>
+              <h1 className='text-2xl font-bold'>{loan.name}</h1>
+              <button
+                onClick={startRename}
+                className='opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-600'
+                title='Renomear'
+              >
+                <FontAwesomeIcon icon={faPencil} size='sm' />
+              </button>
+            </div>
+          )}
           <p className='text-slate-600'>
             Valor emprestado: <b>{formatMoney(loan.principalAmountCents)}</b>
             {loan.downPaymentAmountCents ? (
@@ -225,11 +276,11 @@ export function LoanDetailsPage() {
 
         <div className='flex shrink-0 items-center gap-2'>
           <Button variant='ghost' onClick={() => requestNav('/')}>
-            Voltar
+            <FontAwesomeIcon icon={faArrowLeft} className='mr-2' />Voltar
           </Button>
           {!isEditing && (
             <Button variant='danger' onClick={onDeleteLoan}>
-              Excluir
+              <FontAwesomeIcon icon={faTrash} className='mr-2' />Excluir
             </Button>
           )}
         </div>
@@ -256,9 +307,9 @@ export function LoanDetailsPage() {
         <>
           {/* Summary cards */}
           <div className='mt-6 grid grid-cols-2 gap-4 md:grid-cols-4'>
-            <Card>
+            <Card className='bg-green-50 border-green-200'>
               <CardHeader>
-                <div className='text-sm text-slate-600'>Pago até agora</div>
+                <div className='text-sm text-green-700'><FontAwesomeIcon icon={faCircleCheck} className='mr-1.5 text-green-500' />Pago até agora</div>
                 <div className='text-xl font-bold'>{formatMoney(summary.paidSoFarCents)}</div>
               </CardHeader>
               <CardContent>
@@ -270,9 +321,9 @@ export function LoanDetailsPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className='bg-yellow-50 border-yellow-200'>
               <CardHeader>
-                <div className='text-sm text-slate-600'>Parcelas em aberto</div>
+                <div className='text-sm text-yellow-700'><FontAwesomeIcon icon={faClock} className='mr-1.5 text-yellow-500' />Parcelas em aberto</div>
                 <div className='text-xl font-bold'>{formatMoney(summary.remainingExpectedCents)}</div>
               </CardHeader>
               <CardContent>
@@ -283,9 +334,9 @@ export function LoanDetailsPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className='bg-blue-50 border-blue-200'>
               <CardHeader>
-                <div className='text-sm text-slate-600'>Próximo vencimento</div>
+                <div className='text-sm text-blue-700'><FontAwesomeIcon icon={faCalendarDay} className='mr-1.5 text-blue-500' />Próximo vencimento</div>
                 <div className='text-xl font-bold'>
                   {nextInstallment
                     ? new Date(nextInstallment.dueDate + 'T12:00:00').toLocaleDateString('pt-BR', {
@@ -305,9 +356,9 @@ export function LoanDetailsPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className='bg-purple-50 border-purple-200'>
               <CardHeader>
-                <div className='text-sm text-slate-600'>Economia acumulada</div>
+                <div className='text-sm text-purple-700'><FontAwesomeIcon icon={faPiggyBank} className='mr-1.5 text-purple-500' />Economia acumulada</div>
                 <div
                   className={`text-xl font-bold ${summary.savingsCents > 0 ? 'text-green-600' : summary.savingsCents < 0 ? 'text-red-500' : ''}`}
                 >
@@ -327,7 +378,7 @@ export function LoanDetailsPage() {
           </div>
 
           <div className='mt-4 flex justify-end'>
-            <Button onClick={enterEditMode}>Editar parcelas</Button>
+            <Button onClick={enterEditMode}><FontAwesomeIcon icon={faPen} className='mr-2' />Editar parcelas</Button>
           </div>
 
           {/* Paid installments */}
@@ -377,7 +428,7 @@ export function LoanDetailsPage() {
               Cancelar
             </Button>
             <Button onClick={() => setShowSaveConfirm(true)} disabled={!isDirty}>
-              Salvar alterações
+              <FontAwesomeIcon icon={faCheck} className='mr-2' />Salvar alterações
             </Button>
           </div>
         </div>
