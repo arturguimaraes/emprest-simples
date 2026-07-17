@@ -1,14 +1,20 @@
 import React, { useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faCalendarDay, faCircleCheck, faClock, faPencil, faPiggyBank, faTrash, faPen, faCheck } from '@fortawesome/free-solid-svg-icons';
+import {
+  faArrowLeft, faCalendarDay, faCircleCheck, faClock,
+  faPencil, faPiggyBank, faTrash, faPen, faCheck,
+} from '@fortawesome/free-solid-svg-icons';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useLoans } from '../loans.context';
-import { Button } from '../../../shared/ui/Button';
-import { Card, CardContent, CardHeader } from '../../../shared/ui/Card';
-import { InstallmentsTable } from '../components/InstallmentsTable';
-import { calcLoanSummary } from '../loans.selectors';
-import { formatMoney, todayISODate } from '../loans.utils';
-import type { Installment } from '../loans.types';
+import { useLoans } from '@/features/loans/loans.context';
+import { Button } from '@/shared/ui/Button';
+import { ConfirmModal } from '@/shared/ui/ConfirmModal';
+import { SummaryCard } from '@/features/loans/components/SummaryCard';
+import { InstallmentsTable } from '@/features/loans/components/InstallmentsTable';
+import { calcLoanSummary } from '@/features/loans/loans.selectors';
+import { formatMoney, todayISODate } from '@/features/loans/loans.utils';
+import type { Installment } from '@/features/loans/loans.types';
+
+type SelectedCard = 'paid' | 'open' | 'next' | 'savings' | null;
 
 export function LoanDetailsPage() {
   const nav = useNavigate();
@@ -26,7 +32,8 @@ export function LoanDetailsPage() {
   const [draftName, setDraftName] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Rename so `loan` below is always Loan (not Loan | undefined) — closures stay safe
+  const [selectedCard, setSelectedCard] = useState<SelectedCard>(null);
+
   const maybeLoan = loans.find((l) => l.id === loanId);
 
   if (!maybeLoan) {
@@ -67,7 +74,6 @@ export function LoanDetailsPage() {
   const economyPct =
     loan.totalToPayCents > 0 ? (summary.savingsCents / loan.totalToPayCents) * 100 : 0;
 
-  // Paid installments sorted by paid date (then by number as tiebreaker)
   const paidInstallments = loan.installments
     .filter((i) => i.paid)
     .sort((a, b) => {
@@ -261,7 +267,20 @@ export function LoanDetailsPage() {
     if (e.key === 'Escape') cancelRename();
   }
 
+  function toggleCard(card: SelectedCard) {
+    setSelectedCard((prev) => (prev === card ? null : card));
+  }
+
   const diffResult = showSaveConfirm ? computeDiff() : null;
+
+  // Determine which installments table to show based on selected card
+  const tableToShow: { installments: typeof loan.installments; highlightId?: string } | null = (() => {
+    if (selectedCard === 'paid') return { installments: paidInstallments };
+    if (selectedCard === 'open') return { installments: unpaidInstallments };
+    if (selectedCard === 'next') return { installments: unpaidInstallments, highlightId: nextInstallment?.id };
+    if (selectedCard === 'savings') return { installments: paidInstallments };
+    return null;
+  })();
 
   return (
     <div className='mx-auto max-w-5xl p-6'>
@@ -348,104 +367,108 @@ export function LoanDetailsPage() {
       {/* VIEW mode */}
       {!isEditing && (
         <>
-          {/* Summary cards */}
+          {/* Summary cards — selectable */}
           <div className='mt-6 grid grid-cols-2 gap-4 md:grid-cols-4'>
-            <Card className='bg-green-50 border-green-200'>
-              <CardHeader>
-                <div className='text-sm text-green-700'><FontAwesomeIcon icon={faCircleCheck} className='mr-1.5 text-green-500' />Pago até agora</div>
-                <div className='text-xl font-bold'>{formatMoney(summary.paidSoFarCents)}</div>
-              </CardHeader>
-              <CardContent>
-                <div className='text-sm text-slate-600'>{paidPct.toFixed(1)}% do custo total</div>
-                <div className='mt-0.5 text-xs text-slate-400'>
-                  {summary.paidInstallmentsCount}/{loan.installmentsCount} parcelas
-                  {loan.downPaymentAmountCents ? ' + entrada' : ''}
-                </div>
-              </CardContent>
-            </Card>
+            <SummaryCard
+              icon={faCircleCheck}
+              iconClass='text-green-500'
+              labelClass='text-green-700'
+              cardClass='bg-green-50 border-green-200'
+              ringClass='ring-green-400'
+              label='Pago até agora'
+              value={formatMoney(summary.paidSoFarCents)}
+              subtitle={`${paidPct.toFixed(1)}% do custo total`}
+              detail={`${summary.paidInstallmentsCount}/${loan.installmentsCount} parcelas${loan.downPaymentAmountCents ? ' + entrada' : ''}`}
+              selected={selectedCard === 'paid'}
+              onClick={() => toggleCard('paid')}
+            />
 
-            <Card className='bg-yellow-50 border-yellow-200'>
-              <CardHeader>
-                <div className='text-sm text-yellow-700'><FontAwesomeIcon icon={faClock} className='mr-1.5 text-yellow-500' />Parcelas em aberto</div>
-                <div className='text-xl font-bold'>{formatMoney(summary.remainingExpectedCents)}</div>
-              </CardHeader>
-              <CardContent>
-                <div className='text-sm text-slate-600'>{remainingPct.toFixed(1)}% do custo total</div>
-                <div className='mt-0.5 text-xs text-slate-400'>
-                  {summary.openInstallmentsCount} parcelas restantes
-                </div>
-              </CardContent>
-            </Card>
+            <SummaryCard
+              icon={faClock}
+              iconClass='text-yellow-500'
+              labelClass='text-yellow-700'
+              cardClass='bg-yellow-50 border-yellow-200'
+              ringClass='ring-yellow-400'
+              label='Parcelas em aberto'
+              value={formatMoney(summary.remainingExpectedCents)}
+              subtitle={`${remainingPct.toFixed(1)}% do custo total`}
+              detail={`${summary.openInstallmentsCount} parcelas restantes`}
+              selected={selectedCard === 'open'}
+              onClick={() => toggleCard('open')}
+            />
 
-            <Card className='bg-blue-50 border-blue-200'>
-              <CardHeader>
-                <div className='text-sm text-blue-700'><FontAwesomeIcon icon={faCalendarDay} className='mr-1.5 text-blue-500' />Próximo vencimento</div>
-                <div className='text-xl font-bold'>
-                  {nextInstallment
-                    ? new Date(nextInstallment.dueDate + 'T12:00:00').toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })
-                    : '—'}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className='text-sm text-slate-600'>
-                  {nextInstallment
-                    ? `Parcela ${nextInstallment.number} — ${formatMoney(nextInstallment.expectedAmountCents)}`
-                    : 'Todas as parcelas pagas'}
-                </div>
-              </CardContent>
-            </Card>
+            <SummaryCard
+              icon={faCalendarDay}
+              iconClass='text-blue-500'
+              labelClass='text-blue-700'
+              cardClass='bg-blue-50 border-blue-200'
+              ringClass='ring-blue-400'
+              label='Próximo vencimento'
+              value={
+                nextInstallment
+                  ? new Date(nextInstallment.dueDate + 'T12:00:00').toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })
+                  : '—'
+              }
+              subtitle={
+                nextInstallment
+                  ? `Parcela ${nextInstallment.number} — ${formatMoney(nextInstallment.expectedAmountCents)}`
+                  : 'Todas as parcelas pagas'
+              }
+              selected={selectedCard === 'next'}
+              onClick={() => toggleCard('next')}
+            />
 
-            <Card className='bg-purple-50 border-purple-200'>
-              <CardHeader>
-                <div className='text-sm text-purple-700'><FontAwesomeIcon icon={faPiggyBank} className='mr-1.5 text-purple-500' />Economia acumulada</div>
-                <div
-                  className={`text-xl font-bold ${summary.savingsCents > 0 ? 'text-green-600' : summary.savingsCents < 0 ? 'text-red-500' : ''}`}
-                >
+            <SummaryCard
+              icon={faPiggyBank}
+              iconClass='text-purple-500'
+              labelClass='text-purple-700'
+              cardClass='bg-purple-50 border-purple-200'
+              ringClass='ring-purple-400'
+              label='Economia acumulada'
+              value={
+                <span className={summary.savingsCents > 0 ? 'text-green-600' : summary.savingsCents < 0 ? 'text-red-500' : ''}>
                   {formatMoney(summary.savingsCents)}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className='text-sm text-slate-600'>
-                  {summary.savingsCents > 0
-                    ? `${economyPct.toFixed(1)}% do total contratado`
-                    : summary.savingsCents < 0
-                      ? 'Acréscimo em relação ao previsto'
-                      : 'Sem economia registrada'}
-                </div>
-              </CardContent>
-            </Card>
+                </span>
+              }
+              subtitle={
+                summary.savingsCents > 0
+                  ? `${economyPct.toFixed(1)}% do total contratado`
+                  : summary.savingsCents < 0
+                    ? 'Acréscimo em relação ao previsto'
+                    : 'Sem economia registrada'
+              }
+              selected={selectedCard === 'savings'}
+              onClick={() => toggleCard('savings')}
+            />
           </div>
+
+          {/* Conditionally shown installments table */}
+          {tableToShow && tableToShow.installments.length > 0 && (
+            <div className='mt-6'>
+              <InstallmentsTable
+                readOnly
+                loan={{ ...loan, installments: tableToShow.installments }}
+                showTotals
+                highlightId={tableToShow.highlightId}
+              />
+            </div>
+          )}
+
+          {tableToShow && tableToShow.installments.length === 0 && (
+            <div className='mt-6 rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400'>
+              Nenhuma parcela para exibir.
+            </div>
+          )}
 
           <div className='mt-4 flex justify-end'>
-            <Button onClick={enterEditMode}><FontAwesomeIcon icon={faPen} className='mr-2' />Editar parcelas</Button>
+            <Button onClick={enterEditMode}>
+              <FontAwesomeIcon icon={faPen} className='mr-2' />Editar parcelas
+            </Button>
           </div>
-
-          {/* Paid installments */}
-          {paidInstallments.length > 0 && (
-            <div className='mt-8'>
-              <h2 className='mb-3 text-lg font-semibold'>Parcelas pagas</h2>
-              <InstallmentsTable
-                readOnly
-                loan={{ ...loan, installments: paidInstallments }}
-              />
-            </div>
-          )}
-
-          {/* Unpaid installments */}
-          {unpaidInstallments.length > 0 && (
-            <div className='mt-8'>
-              <h2 className='mb-3 text-lg font-semibold'>Parcelas em aberto</h2>
-              <InstallmentsTable
-                readOnly
-                loan={{ ...loan, installments: unpaidInstallments }}
-              />
-            </div>
-          )}
-
         </>
       )}
 
@@ -464,6 +487,7 @@ export function LoanDetailsPage() {
             onTogglePaid={onTogglePaid}
             onUpdatePaidAmount={onUpdatePaidAmount}
             onUpdatePaidDate={onUpdatePaidDate}
+            showTotals
           />
 
           <div className='mt-4 flex items-center justify-end gap-3'>
@@ -585,42 +609,28 @@ export function LoanDetailsPage() {
 
       {/* Delete confirmation modal */}
       {showDeleteConfirm && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'>
-          <div className='w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl'>
-            <h3 className='mb-2 text-lg font-semibold'>Excluir empréstimo?</h3>
-            <p className='mb-4 text-sm text-slate-600'>
-              Tem certeza que deseja excluir <b>{loan.name}</b>? Esta ação não pode ser desfeita.
-            </p>
-            <div className='flex justify-end gap-3'>
-              <Button variant='ghost' onClick={() => setShowDeleteConfirm(false)}>
-                Cancelar
-              </Button>
-              <Button variant='danger' onClick={onDeleteLoan}>
-                <FontAwesomeIcon icon={faTrash} className='mr-2' />Excluir
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title='Excluir empréstimo?'
+          confirmLabel='Excluir'
+          confirmVariant='danger'
+          onConfirm={onDeleteLoan}
+          onCancel={() => setShowDeleteConfirm(false)}
+        >
+          Tem certeza que deseja excluir <b>{loan.name}</b>? Esta ação não pode ser desfeita.
+        </ConfirmModal>
       )}
 
       {/* Discard confirmation modal */}
       {showDiscardConfirm && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'>
-          <div className='w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl'>
-            <h3 className='mb-2 text-lg font-semibold'>Descartar alterações?</h3>
-            <p className='mb-4 text-sm text-slate-600'>
-              Você tem alterações não salvas. Deseja descartá-las?
-            </p>
-            <div className='flex justify-end gap-3'>
-              <Button variant='ghost' onClick={() => setShowDiscardConfirm(false)}>
-                Continuar editando
-              </Button>
-              <Button variant='danger' onClick={confirmDiscard}>
-                Descartar
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title='Descartar alterações?'
+          confirmLabel='Descartar'
+          confirmVariant='danger'
+          onConfirm={confirmDiscard}
+          onCancel={() => setShowDiscardConfirm(false)}
+        >
+          Você tem alterações não salvas. Deseja descartá-las?
+        </ConfirmModal>
       )}
     </div>
   );

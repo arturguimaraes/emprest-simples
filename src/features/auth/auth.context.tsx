@@ -7,7 +7,7 @@ import {
   signOut as firebaseSignOut,
   type User,
 } from 'firebase/auth';
-import { auth } from '../../firebase';
+import { auth } from '@/firebase';
 
 const EMAIL_KEY = 'emprest:emailForSignIn';
 

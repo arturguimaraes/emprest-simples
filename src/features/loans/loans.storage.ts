@@ -1,5 +1,5 @@
 import { collection, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { db } from '@/firebase';
 import type { Loan } from './loans.types';
 
 function loansPath(uid: string) {

@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useLoans } from '../loans.context';
 import { LoanCard } from '../components/LoanCard';
-import { Button } from '../../../shared/ui/Button';
+import { Button } from '@/shared/ui/Button';
 export function LoansListPage() {
   const { loans, loading } = useLoans();
 

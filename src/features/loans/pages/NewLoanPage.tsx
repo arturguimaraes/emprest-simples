@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faCheck } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../../../shared/ui/Button';
-import { Input } from '../../../shared/ui/Input';
-import { Card, CardContent, CardHeader } from '../../../shared/ui/Card';
+import { Button } from '@/shared/ui/Button';
+import { Input } from '@/shared/ui/Input';
+import { Card, CardContent, CardHeader } from '@/shared/ui/Card';
 import { useLoans } from '../loans.context';
 import type { Loan } from '../loans.types';
 import {

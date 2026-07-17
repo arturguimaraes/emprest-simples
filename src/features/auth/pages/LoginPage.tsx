@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faEnvelope, faPaperPlane, faSpinner } from '@fortawesome/free-solid-svg-icons';
-import { useAuth } from '../auth.context';
-import { Button } from '../../../shared/ui/Button';
-import { Input } from '../../../shared/ui/Input';
-import { Card, CardContent, CardHeader } from '../../../shared/ui/Card';
+import { useAuth } from '@/features/auth/auth.context';
+import { Button } from '@/shared/ui/Button';
+import { Input } from '@/shared/ui/Input';
+import { Card, CardContent, CardHeader } from '@/shared/ui/Card';
 
 export function LoginPage() {
   const { sendMagicLink } = useAuth();

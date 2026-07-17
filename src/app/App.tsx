@@ -1,13 +1,13 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
-import { useAuth } from '../features/auth/auth.context';
-import { LoansProvider } from '../features/loans/loans.context';
-import { LoansListPage } from '../features/loans/pages/LoansListPage';
-import { NewLoanPage } from '../features/loans/pages/NewLoanPage';
-import { LoanDetailsPage } from '../features/loans/pages/LoanDetailsPage';
-import { LoginPage } from '../features/auth/pages/LoginPage';
-import { Footer } from '../shared/ui/Footer';
+import { useAuth } from '@/features/auth/auth.context';
+import { LoansProvider } from '@/features/loans/loans.context';
+import { LoansListPage } from '@/features/loans/pages/LoansListPage';
+import { NewLoanPage } from '@/features/loans/pages/NewLoanPage';
+import { LoanDetailsPage } from '@/features/loans/pages/LoanDetailsPage';
+import { LoginPage } from '@/features/auth/pages/LoginPage';
+import { Footer } from '@/shared/ui/Footer';
 
 function AuthenticatedApp({ uid }: { uid: string }) {
   const { user, signOut } = useAuth();
