@@ -17,7 +17,7 @@ jobs:
 
       - name: Create or update Pull Request
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           git fetch origin main
 
