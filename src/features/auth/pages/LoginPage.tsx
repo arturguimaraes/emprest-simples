@@ -73,6 +73,9 @@ export function LoginPage() {
             )}
           </CardContent>
         </Card>
+        <p className='mt-6 text-center text-xs text-slate-400'>
+          v{__APP_VERSION__} · {__BUILD_DATE__}
+        </p>
       </div>
     </div>
   );
