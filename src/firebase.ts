@@ -3,12 +3,12 @@ import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyCFTUl8Z_Jesno4dwqsMYBqLGvo01AAtXM',
-  authDomain: 'emprest-simples.firebaseapp.com',
-  projectId: 'emprest-simples',
-  storageBucket: 'emprest-simples.firebasestorage.app',
-  messagingSenderId: '730637115553',
-  appId: '1:730637115553:web:a64c5c04214d08c02850e0',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
