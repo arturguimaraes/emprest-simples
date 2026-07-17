@@ -193,7 +193,7 @@ export function InstallmentsTable({
                 <td className='px-4 py-3'>
                   {totalAdjustmentCents !== 0 ? (
                     <span className={totalAdjustmentCents > 0 ? 'text-green-600' : 'text-red-500'}>
-                      {totalAdjustmentCents > 0 ? '−' : '+'}{formatMoney(Math.abs(totalAdjustmentCents))}
+                      {formatMoney(Math.abs(totalAdjustmentCents))}
                     </span>
                   ) : (
                     <span className='text-slate-400'>—</span>

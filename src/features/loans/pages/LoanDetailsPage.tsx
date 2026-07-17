@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft, faCalendarDay, faCircleCheck, faClock,
   faPencil, faPiggyBank, faTrash, faPen, faCheck,
+  faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLoans } from '@/features/loans/loans.context';
@@ -32,7 +33,7 @@ export function LoanDetailsPage() {
   const [draftName, setDraftName] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const [selectedCard, setSelectedCard] = useState<SelectedCard>(null);
+  const [selectedCard, setSelectedCard] = useState<SelectedCard>('next');
 
   const maybeLoan = loans.find((l) => l.id === loanId);
 
@@ -84,6 +85,17 @@ export function LoanDetailsPage() {
   const unpaidInstallments = loan.installments
     .filter((i) => !i.paid)
     .sort((a, b) => a.number - b.number);
+
+  const todayStr = todayISODate();
+  const overdueInstallments = loan.installments.filter((i) => !i.paid && i.dueDate < todayStr);
+  const nextDueDays = nextInstallment
+    ? Math.round(
+        (new Date(nextInstallment.dueDate + 'T12:00:00').getTime() -
+          new Date(todayStr + 'T12:00:00').getTime()) /
+          (1000 * 60 * 60 * 24),
+      )
+    : null;
+  const projectedTotalCents = summary.paidSoFarCents + summary.remainingExpectedCents;
 
   // --- navigation guards ---
 
@@ -273,15 +285,6 @@ export function LoanDetailsPage() {
 
   const diffResult = showSaveConfirm ? computeDiff() : null;
 
-  // Determine which installments table to show based on selected card
-  const tableToShow: { installments: typeof loan.installments; highlightId?: string } | null = (() => {
-    if (selectedCard === 'paid') return { installments: paidInstallments };
-    if (selectedCard === 'open') return { installments: unpaidInstallments };
-    if (selectedCard === 'next') return { installments: unpaidInstallments, highlightId: nextInstallment?.id };
-    if (selectedCard === 'savings') return { installments: paidInstallments };
-    return null;
-  })();
-
   return (
     <div className='mx-auto max-w-5xl p-6'>
       {/* Header */}
@@ -370,6 +373,31 @@ export function LoanDetailsPage() {
           {/* Summary cards — selectable */}
           <div className='mt-6 grid grid-cols-2 gap-4 md:grid-cols-4'>
             <SummaryCard
+              icon={faCalendarDay}
+              iconClass='text-blue-500'
+              labelClass='text-blue-700'
+              cardClass='bg-blue-50 border-blue-200'
+              ringClass='ring-blue-400'
+              label='Próximo vencimento'
+              value={
+                nextInstallment
+                  ? new Date(nextInstallment.dueDate + 'T12:00:00').toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })
+                  : '—'
+              }
+              subtitle={
+                nextInstallment
+                  ? `Parcela ${nextInstallment.number} — ${formatMoney(nextInstallment.expectedAmountCents)}`
+                  : 'Todas as parcelas pagas'
+              }
+              selected={selectedCard === 'next'}
+              onClick={() => toggleCard('next')}
+            />
+
+            <SummaryCard
               icon={faCircleCheck}
               iconClass='text-green-500'
               labelClass='text-green-700'
@@ -398,31 +426,6 @@ export function LoanDetailsPage() {
             />
 
             <SummaryCard
-              icon={faCalendarDay}
-              iconClass='text-blue-500'
-              labelClass='text-blue-700'
-              cardClass='bg-blue-50 border-blue-200'
-              ringClass='ring-blue-400'
-              label='Próximo vencimento'
-              value={
-                nextInstallment
-                  ? new Date(nextInstallment.dueDate + 'T12:00:00').toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                    })
-                  : '—'
-              }
-              subtitle={
-                nextInstallment
-                  ? `Parcela ${nextInstallment.number} — ${formatMoney(nextInstallment.expectedAmountCents)}`
-                  : 'Todas as parcelas pagas'
-              }
-              selected={selectedCard === 'next'}
-              onClick={() => toggleCard('next')}
-            />
-
-            <SummaryCard
               icon={faPiggyBank}
               iconClass='text-purple-500'
               labelClass='text-purple-700'
@@ -446,29 +449,245 @@ export function LoanDetailsPage() {
             />
           </div>
 
-          {/* Conditionally shown installments table */}
-          {tableToShow && tableToShow.installments.length > 0 && (
-            <div className='mt-6'>
-              <InstallmentsTable
-                readOnly
-                loan={{ ...loan, installments: tableToShow.installments }}
-                showTotals
-                highlightId={tableToShow.highlightId}
-              />
-            </div>
-          )}
-
-          {tableToShow && tableToShow.installments.length === 0 && (
-            <div className='mt-6 rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400'>
-              Nenhuma parcela para exibir.
-            </div>
-          )}
-
           <div className='mt-4 flex justify-end'>
             <Button onClick={enterEditMode}>
               <FontAwesomeIcon icon={faPen} className='mr-2' />Editar parcelas
             </Button>
           </div>
+
+          {/* Card 1 — paid installments table + summary */}
+          {selectedCard === 'paid' && (
+            <div className='mt-6'>
+              {paidInstallments.length > 0 ? (
+                <>
+                  <InstallmentsTable
+                    readOnly
+                    loan={{ ...loan, installments: paidInstallments }}
+                    showTotals
+                  />
+                  <div className='mt-4 rounded-2xl border border-green-100 bg-green-50/50 p-5'>
+                    <div className='grid gap-6 sm:grid-cols-2'>
+                      <div>
+                        <h3 className='mb-3 text-sm font-semibold text-green-700'>Pago</h3>
+                        <div className='space-y-2 text-sm'>
+                          {loan.downPaymentAmountCents ? (
+                            <div className='flex justify-between'>
+                              <span className='text-slate-500'>Entrada</span>
+                              <span className='font-medium text-slate-800'>{formatMoney(loan.downPaymentAmountCents)}</span>
+                            </div>
+                          ) : null}
+                          <div className='flex justify-between'>
+                            <span className='text-slate-500'>Parcelas pagas</span>
+                            <span className='font-medium text-slate-800'>
+                              {formatMoney(summary.paidSoFarCents - (loan.downPaymentAmountCents ?? 0))}
+                            </span>
+                          </div>
+                          <div className='flex justify-between border-t border-green-100 pt-2'>
+                            <span className='font-medium text-slate-700'>Total pago</span>
+                            <span className='font-semibold text-slate-800'>{formatMoney(summary.paidSoFarCents)}</span>
+                          </div>
+                          {summary.savingsCents !== 0 && (
+                            <div className='flex justify-between'>
+                              <span className={summary.savingsCents > 0 ? 'text-green-700' : 'text-red-600'}>
+                                {summary.savingsCents > 0 ? 'Desconto obtido' : 'Acréscimo pago'}
+                              </span>
+                              <span className={`font-semibold ${summary.savingsCents > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                {formatMoney(Math.abs(summary.savingsCents))}
+                                <span className='ml-1 text-xs font-normal'>({Math.abs(economyPct).toFixed(1)}%)</span>
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className='mb-3 text-sm font-semibold text-green-700'>
+                          Previsão{' '}
+                          <span className='text-xs font-normal text-slate-400'>(demais no valor nominal)</span>
+                        </h3>
+                        <div className='space-y-2 text-sm'>
+                          <div className='flex justify-between'>
+                            <span className='text-slate-500'>Restante previsto</span>
+                            <span className='font-medium text-slate-800'>{formatMoney(summary.remainingExpectedCents)}</span>
+                          </div>
+                          <div className='flex justify-between border-t border-green-100 pt-2'>
+                            <span className='font-medium text-slate-700'>Total projetado</span>
+                            <span className='font-semibold text-slate-800'>{formatMoney(projectedTotalCents)}</span>
+                          </div>
+                          <div className='flex justify-between'>
+                            <span className='text-slate-400'>Total contratado</span>
+                            <span className='text-slate-400'>{formatMoney(totalCents)}</span>
+                          </div>
+                          {totalCents !== projectedTotalCents && (
+                            <div className='flex justify-between border-t border-green-100 pt-2'>
+                              <span className={totalCents > projectedTotalCents ? 'text-green-700' : 'text-red-600'}>
+                                {totalCents > projectedTotalCents ? 'Economia projetada' : 'Acréscimo projetado'}
+                              </span>
+                              <span className={`font-semibold ${totalCents > projectedTotalCents ? 'text-green-600' : 'text-red-500'}`}>
+                                {formatMoney(Math.abs(totalCents - projectedTotalCents))}
+                                <span className='ml-1 text-xs font-normal'>
+                                  ({(Math.abs((totalCents - projectedTotalCents) / totalCents) * 100).toFixed(1)}%)
+                                </span>
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className='rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400'>
+                  Nenhuma parcela paga ainda.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Card 2 — open installments table */}
+          {selectedCard === 'open' && (
+            <div className='mt-6'>
+              {unpaidInstallments.length > 0 ? (
+                <InstallmentsTable
+                  readOnly
+                  loan={{ ...loan, installments: unpaidInstallments }}
+                  showTotals
+                />
+              ) : (
+                <div className='rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400'>
+                  Todas as parcelas foram pagas.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Card 3 — next payment detail */}
+          {selectedCard === 'next' && (
+            <div className='mt-6 rounded-2xl border border-blue-100 bg-blue-50/50 p-6'>
+              {nextInstallment ? (
+                <>
+                  <p className='mb-4 text-sm font-medium text-blue-700'>
+                    Parcela {nextInstallment.number} de {loan.installmentsCount}
+                  </p>
+                  <div className='grid gap-4 sm:grid-cols-2'>
+                    <div className='rounded-xl border border-blue-100 bg-white p-4'>
+                      <div className='text-xs text-slate-500'>Vencimento</div>
+                      <div className='mt-1 text-lg font-bold text-slate-800'>
+                        {fmtDate(nextInstallment.dueDate)}
+                      </div>
+                      <div className={`mt-1 text-sm font-medium ${
+                        nextDueDays! < 0
+                          ? 'text-red-500'
+                          : nextDueDays! <= 7
+                            ? 'text-yellow-600'
+                            : 'text-blue-600'
+                      }`}>
+                        {nextDueDays! < 0
+                          ? `${Math.abs(nextDueDays!)} dias em atraso`
+                          : nextDueDays === 0
+                            ? 'Vence hoje'
+                            : `em ${nextDueDays} dias`}
+                      </div>
+                    </div>
+                    <div className='rounded-xl border border-blue-100 bg-white p-4'>
+                      <div className='text-xs text-slate-500'>Valor previsto</div>
+                      <div className='mt-1 text-lg font-bold text-slate-800'>
+                        {formatMoney(nextInstallment.expectedAmountCents)}
+                      </div>
+                      {overdueInstallments.length === 0 && (
+                        <div className='mt-1 text-xs text-slate-400'>
+                          {loan.installmentsCount - summary.paidInstallmentsCount} parcelas restantes
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {overdueInstallments.length > 0 && (
+                    <div className='mt-4 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700'>
+                      <FontAwesomeIcon icon={faTriangleExclamation} className='mt-0.5 shrink-0' />
+                      <span>
+                        <b>{overdueInstallments.length} parcela{overdueInstallments.length > 1 ? 's' : ''} em atraso</b>
+                        {' '}·{' '}
+                        {formatMoney(overdueInstallments.reduce((s, i) => s + i.expectedAmountCents, 0))} em aberto
+                      </span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className='text-center text-sm text-slate-500'>Todas as parcelas foram pagas.</p>
+              )}
+            </div>
+          )}
+
+          {/* Card 4 — economy & forecast detail */}
+          {selectedCard === 'savings' && (
+            <div className='mt-6 rounded-2xl border border-purple-100 bg-purple-50/50 p-6'>
+              <div className='grid gap-6 sm:grid-cols-2'>
+                <div>
+                  <h3 className='mb-3 text-sm font-semibold text-purple-700'>Realizado</h3>
+                  <div className='space-y-2 text-sm'>
+                    <div className='flex justify-between'>
+                      <span className='text-slate-500'>Pago até agora</span>
+                      <span className='font-medium text-slate-800'>{formatMoney(summary.paidSoFarCents)}</span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-slate-500'>Parcelas pagas</span>
+                      <span className='font-medium text-slate-800'>
+                        {summary.paidInstallmentsCount} de {loan.installmentsCount}
+                      </span>
+                    </div>
+                    {summary.savingsCents !== 0 && (
+                      <div className='flex justify-between border-t border-purple-100 pt-2'>
+                        <span className={summary.savingsCents > 0 ? 'text-green-700' : 'text-red-600'}>
+                          {summary.savingsCents > 0 ? 'Desconto obtido' : 'Acréscimo pago'}
+                        </span>
+                        <span className={`font-semibold ${summary.savingsCents > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {formatMoney(Math.abs(summary.savingsCents))}
+                          <span className='ml-1 text-xs font-normal'>({Math.abs(economyPct).toFixed(1)}%)</span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className='mb-3 text-sm font-semibold text-purple-700'>
+                    Previsão{' '}
+                    <span className='text-xs font-normal text-slate-400'>
+                      (demais no valor nominal)
+                    </span>
+                  </h3>
+                  <div className='space-y-2 text-sm'>
+                    <div className='flex justify-between'>
+                      <span className='text-slate-500'>Restante previsto</span>
+                      <span className='font-medium text-slate-800'>{formatMoney(summary.remainingExpectedCents)}</span>
+                    </div>
+                    <div className='flex justify-between border-t border-purple-100 pt-2'>
+                      <span className='text-slate-700 font-medium'>Total projetado</span>
+                      <span className='font-semibold text-slate-800'>{formatMoney(projectedTotalCents)}</span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-slate-400'>Total contratado</span>
+                      <span className='text-slate-400'>{formatMoney(totalCents)}</span>
+                    </div>
+                    {totalCents !== projectedTotalCents && (
+                      <div className='flex justify-between border-t border-purple-100 pt-2'>
+                        <span className={totalCents > projectedTotalCents ? 'text-green-700' : 'text-red-600'}>
+                          {totalCents > projectedTotalCents ? 'Economia projetada' : 'Acréscimo projetado'}
+                        </span>
+                        <span className={`font-semibold ${totalCents > projectedTotalCents ? 'text-green-600' : 'text-red-500'}`}>
+                          {formatMoney(Math.abs(totalCents - projectedTotalCents))}
+                          <span className='ml-1 text-xs font-normal'>
+                            ({(Math.abs((totalCents - projectedTotalCents) / totalCents) * 100).toFixed(1)}%)
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
         </>
       )}
 

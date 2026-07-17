@@ -23,11 +23,11 @@ export function SummaryCard({
   return (
     <button
       onClick={onClick}
-      className={`block w-full rounded-2xl text-left transition-all duration-150 focus:outline-none ${
+      className={`block h-full w-full rounded-2xl text-left transition-all duration-150 focus:outline-none ${
         selected ? `ring-2 ${ringClass} shadow-md` : 'hover:opacity-90'
       }`}
     >
-      <div className={`rounded-2xl border shadow-sm ${cardClass} ${selected ? 'border-transparent' : ''}`}>
+      <div className={`flex h-full flex-col rounded-2xl border shadow-sm ${cardClass} ${selected ? 'border-transparent' : ''}`}>
         <div className='border-b border-black/5 p-4'>
           <div className={`text-sm ${labelClass}`}>
             <FontAwesomeIcon icon={icon} className={`mr-1.5 ${iconClass}`} />
