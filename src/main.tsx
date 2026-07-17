@@ -1,13 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './app/App';
+import { AuthProvider } from './features/auth/auth.context';
 import './index.css';
-import { LoansProvider } from './features/loans/loans.context';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <LoansProvider>
+    <AuthProvider>
       <App />
-    </LoansProvider>
+    </AuthProvider>
   </React.StrictMode>,
 );

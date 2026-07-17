@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import type { Loan } from '../loans.types';
 import { formatMoney } from '../loans.utils';
 import { calcLoanSummary } from '../loans.selectors';
@@ -33,11 +35,14 @@ export function LoanCard({ loan }: { loan: Loan }) {
           )}
         </div>
 
-        <div className='shrink-0 text-right'>
-          <div className='text-sm font-semibold'>{progressPct}%</div>
-          <div className='text-xs text-slate-500'>
-            {summary.paidInstallmentsCount}/{loan.installmentsCount} pagas
+        <div className='shrink-0 flex items-center gap-3'>
+          <div className='text-right'>
+            <div className='text-sm font-semibold'>{progressPct}%</div>
+            <div className='text-xs text-slate-500'>
+              {summary.paidInstallmentsCount}/{loan.installmentsCount} pagas
+            </div>
           </div>
+          <FontAwesomeIcon icon={faChevronRight} className='text-slate-300' size='sm' />
         </div>
       </div>
 

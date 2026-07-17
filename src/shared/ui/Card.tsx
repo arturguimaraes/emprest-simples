@@ -1,7 +1,13 @@
 import React from 'react';
 
-export function Card({ children }: { children: React.ReactNode }) {
-  return <div className='rounded-2xl border border-slate-200 bg-white shadow-sm'>{children}</div>;
+export function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  const hasBg = /\bbg-/.test(className);
+  const hasBorder = /\bborder-[a-z]/.test(className);
+  return (
+    <div className={`rounded-2xl border shadow-sm ${!hasBorder ? 'border-slate-200' : ''} ${!hasBg ? 'bg-white' : ''} ${className}`}>
+      {children}
+    </div>
+  );
 }
 
 export function CardHeader({ children }: { children: React.ReactNode }) {

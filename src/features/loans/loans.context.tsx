@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { onSnapshot } from 'firebase/firestore';
 import type { EntityId, Loan } from './loans.types';
-import { loansCol, persistLoan, removeLoan, patchLoan, patchInstallments } from './loans.storage';
+import { loansColFor, persistLoan, removeLoan, patchLoan, patchInstallments } from './loans.storage';
 
 type LoansContextValue = {
   loans: Loan[];
@@ -19,7 +19,7 @@ type LoansContextValue = {
 
 const LoansContext = createContext<LoansContextValue | null>(null);
 
-export function LoansProvider({ children }: { children: React.ReactNode }) {
+export function LoansProvider({ uid, children }: { uid: string; children: React.ReactNode }) {
   const [loans, setLoansState] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
   // Ref so closures inside useMemo always see the latest loans without re-memoizing
@@ -27,33 +27,34 @@ export function LoansProvider({ children }: { children: React.ReactNode }) {
   loansRef.current = loans;
 
   useEffect(() => {
-    const unsub = onSnapshot(loansCol, (snapshot) => {
+    setLoading(true);
+    const unsub = onSnapshot(loansColFor(uid), (snapshot) => {
       const data = snapshot.docs.map((d) => d.data() as Loan);
       data.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       setLoansState(data);
       setLoading(false);
     });
     return unsub;
-  }, []);
+  }, [uid]);
 
   const value = useMemo<LoansContextValue>(
     () => ({
       loans,
       loading,
-      addLoan: (loan) => persistLoan(loan),
-      deleteLoan: (loanId) => removeLoan(loanId),
-      updateLoan: (loanId, patch) => patchLoan(loanId, patch),
+      addLoan: (loan) => persistLoan(uid, loan),
+      deleteLoan: (loanId) => removeLoan(uid, loanId),
+      updateLoan: (loanId, patch) => patchLoan(uid, loanId, patch),
       updateInstallment: (loanId, installmentId, patch) => {
         const loan = loansRef.current.find((l) => l.id === loanId);
         if (!loan) return Promise.resolve();
         const installments = loan.installments.map((it) =>
           it.id === installmentId ? { ...it, ...patch } : it,
         );
-        return patchInstallments(loanId, installments);
+        return patchInstallments(uid, loanId, installments);
       },
-      replaceAllInstallments: (loanId, installments) => patchInstallments(loanId, installments),
+      replaceAllInstallments: (loanId, installments) => patchInstallments(uid, loanId, installments),
     }),
-    [loans, loading],
+    [loans, loading, uid],
   );
 
   return <LoansContext.Provider value={value}>{children}</LoansContext.Provider>;
